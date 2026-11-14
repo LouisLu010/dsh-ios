@@ -344,7 +344,7 @@ static const NSTimeInterval kSocketTimeout = 15;
                                          detail:path result:@"switched off"
                                         outcome:DSHActivityOutcomeRefused duration:0];
             return [DSHHostBridgeResponse errorWithStatus:403 code:@"permission_denied"
-                                                  message:[NSString stringWithFormat:@"%@ is switched off in DSH's settings; ask the user to enable it", capability] recoverable:YES];
+                                                  message:[NSString stringWithFormat:@"%@ is switched off in DeepSeek Harness's settings; ask the user to enable it", capability] recoverable:YES];
         }
     }
 

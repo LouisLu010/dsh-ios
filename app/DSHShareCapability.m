@@ -43,7 +43,7 @@ static const NSTimeInterval kSheetTimeout = 180;
     [DSHCapabilityRegistry.shared registerCapability:
         [[DSHCapability alloc] initWithIdentifier:DSHCapabilityShare
                                             title:@"Share sheet"
-                                          details:@"Lets the agent offer text to the iOS share sheet. DSH asks every time, and shows you the text."
+                                          details:@"Lets the agent offer text to the iOS share sheet. DeepSeek Harness asks every time, and shows you the text."
                                              gate:DSHCapabilityGatePerCall
                                  enabledByDefault:YES
                                         available:YES]];
@@ -64,7 +64,7 @@ static const NSTimeInterval kSheetTimeout = 180;
 
         // Shown before the sheet, in DSH's sentence, because the sheet itself
         // asks only where the text goes and not whether it should go at all.
-        NSString *detail = [NSString stringWithFormat:@"DSH wants to share this text:\n\n“%@”\n\nYou will choose where it goes.",
+        NSString *detail = [NSString stringWithFormat:@"DeepSeek Harness wants to share this text:\n\n“%@”\n\nYou will choose where it goes.",
                             DSHDisplayValue(text, 300)];
         DSHConfirmationOutcome outcome = [DSHCallConfirmation confirmTitle:@"Share this?" detail:detail
                                                                capability:DSHCapabilityShare];
@@ -99,7 +99,7 @@ static const NSTimeInterval kSheetTimeout = 180;
         });
         if (!presented)
             return [DSHHostBridgeResponse errorWithStatus:409 code:@"unavailable"
-                                                  message:@"DSH is not in the foreground, so it cannot show the share sheet. Ask the user to open DSH and try again."
+                                                  message:@"DeepSeek Harness is not in the foreground, so it cannot show the share sheet. Ask the user to open DeepSeek Harness and try again."
                                               recoverable:YES];
 
         if (dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, (int64_t) (kSheetTimeout * NSEC_PER_SEC))) != 0)

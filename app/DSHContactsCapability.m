@@ -44,7 +44,7 @@ static const NSInteger kMaxLimit = 25;
                                           recoverable:YES];
     }
     return [DSHHostBridgeResponse errorWithStatus:403 code:@"permission_denied"
-                                          message:@"Contacts access is denied for DSH in iOS Settings ▸ Privacy ▸ Contacts."
+                                          message:@"Contacts access is denied for DeepSeek Harness in iOS Settings ▸ Privacy ▸ Contacts."
                                       recoverable:YES];
 }
 

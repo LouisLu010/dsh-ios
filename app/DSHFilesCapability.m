@@ -71,7 +71,7 @@ static const NSTimeInterval kPickerTimeout = 120;
 
 + (DSHHostBridgeResponse *)noForegroundUI {
     return [DSHHostBridgeResponse errorWithStatus:409 code:@"unavailable"
-                                          message:@"DSH is not in the foreground, so it cannot show the file picker. Ask the user to open DSH and try again."
+                                          message:@"DeepSeek Harness is not in the foreground, so it cannot show the file picker. Ask the user to open DeepSeek Harness and try again."
                                       recoverable:YES];
 }
 
@@ -87,7 +87,7 @@ static const NSTimeInterval kPickerTimeout = 120;
                                                                 available:YES]];
     [registry registerCapability:[[DSHCapability alloc] initWithIdentifier:DSHCapabilityFilesExport
                                                                     title:@"Files (export)"
-                                                                  details:@"Lets the agent save a file out of DSH; you choose where it goes."
+                                                                  details:@"Lets the agent save a file out of DeepSeek Harness; you choose where it goes."
                                                                      gate:DSHCapabilityGatePerCall
                                                          enabledByDefault:YES
                                                                 available:YES]];
@@ -165,8 +165,8 @@ static const NSTimeInterval kPickerTimeout = 120;
             safeName = [@"export-" stringByAppendingString:safeName];
 
         DSHConfirmationOutcome outcome =
-            [DSHCallConfirmation confirmTitle:@"Save a file out of DSH?"
-                                       detail:[NSString stringWithFormat:@"DSH wants to save “%@” (%.1f KB). You will choose where it goes.",
+            [DSHCallConfirmation confirmTitle:@"Save a file out of DeepSeek Harness?"
+                                       detail:[NSString stringWithFormat:@"DeepSeek Harness wants to save “%@” (%.1f KB). You will choose where it goes.",
                                                DSHDisplayValue(safeName, 80), data.length / 1024.0]
                                    capability:DSHCapabilityFilesExport];
         DSHHostBridgeResponse *refusal = [DSHCallConfirmation refusalFor:outcome action:[NSString stringWithFormat:@"saving “%@”", DSHDisplayValue(safeName, 80)]];

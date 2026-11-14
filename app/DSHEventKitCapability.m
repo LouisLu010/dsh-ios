@@ -78,12 +78,12 @@ static const NSInteger kMaxDays = 366;
         if (status == EKAuthorizationStatusWriteOnly)
             return [DSHHostBridgeResponse errorWithStatus:403 code:@"permission_denied"
                                                   message:[NSString stringWithFormat:
-                                                           @"DSH only has write access to %@; reading needs full access in Settings ▸ Privacy.", name]
+                                                           @"DeepSeek Harness only has write access to %@; reading needs full access in Settings ▸ Privacy.", name]
                                               recoverable:YES];
     }
     return [DSHHostBridgeResponse errorWithStatus:403 code:@"permission_denied"
                                           message:[NSString stringWithFormat:
-                                                   @"%@ access is denied for DSH in iOS Settings ▸ Privacy; the user has to grant it there.", name]
+                                                   @"%@ access is denied for DeepSeek Harness in iOS Settings ▸ Privacy; the user has to grant it there.", name]
                                       recoverable:YES];
 }
 
@@ -105,7 +105,7 @@ static const NSInteger kMaxDays = 366;
     }
     return [DSHHostBridgeResponse errorWithStatus:403 code:@"permission_denied"
                                           message:[NSString stringWithFormat:
-                                                   @"%@ access is denied for DSH in iOS Settings ▸ Privacy; the user has to grant it there.", name]
+                                                   @"%@ access is denied for DeepSeek Harness in iOS Settings ▸ Privacy; the user has to grant it there.", name]
                                       recoverable:YES];
 }
 
@@ -323,7 +323,7 @@ static const NSInteger kMaxDays = 366;
         EKCalendar *calendar = store.defaultCalendarForNewEvents;
         if (calendar == nil)
             return [DSHHostBridgeResponse errorWithStatus:409 code:@"unavailable"
-                                                  message:@"There is no calendar on this device that DSH may write to."
+                                                  message:@"There is no calendar on this device that DeepSeek Harness may write to."
                                               recoverable:NO];
 
         NSString *location = [request.json[@"location"] isKindOfClass:NSString.class] ? request.json[@"location"] : nil;
@@ -386,7 +386,7 @@ static const NSInteger kMaxDays = 366;
         EKCalendar *list = store.defaultCalendarForNewReminders;
         if (list == nil)
             return [DSHHostBridgeResponse errorWithStatus:409 code:@"unavailable"
-                                                  message:@"There is no reminders list on this device that DSH may write to."
+                                                  message:@"There is no reminders list on this device that DeepSeek Harness may write to."
                                               recoverable:NO];
 
         NSMutableString *detail = [NSMutableString stringWithFormat:@"“%@”", DSHDisplayValue(title, 120)];

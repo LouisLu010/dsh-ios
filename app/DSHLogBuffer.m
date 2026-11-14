@@ -50,7 +50,7 @@ NSNotificationName const DSHLogBufferDidChangeNotification = @"DSHLogBufferDidCh
         NSDictionary *info = NSBundle.mainBundle.infoDictionary;
         UIDevice *device = UIDevice.currentDevice;
         NSString *header = [NSString stringWithFormat:
-            @"DSH startup diagnostics\n"
+            @"DeepSeek Harness startup diagnostics\n"
              "started: %@\n"
              "app: %@ (%@)\n"
              "device: %@\n"
@@ -186,7 +186,7 @@ NSNotificationName const DSHLogBufferDidChangeNotification = @"DSHLogBufferDidCh
         return [b.lastPathComponent compare:a.lastPathComponent];
     }];
     NSMutableString *report = [NSMutableString stringWithString:
-        @"DSH diagnostic report\nRecent launches, newest first. Review before sharing.\n"];
+        @"DeepSeek Harness diagnostic report\nRecent launches, newest first. Review before sharing.\n"];
     [report appendFormat:@"\n%@\n", DSHStartupMetrics.shared.summary];
     for (NSURL *url in files) {
         NSString *contents = [NSString stringWithContentsOfURL:url encoding:NSUTF8StringEncoding error:nil];

@@ -26,6 +26,10 @@ const server = http.createServer((req, res) => {
       res.end(JSON.stringify({ object: 'list', data: [{ id: 'deepseek-chat', object: 'model' }] }));
       return;
     }
+    if (req.method === 'POST' && /\/messages(\?|$)/.test(req.url)) {
+      messagesApi(req, res, body);
+      return;
+    }
     if (req.method !== 'POST' || !req.url.includes('/chat/completions')) {
       res.writeHead(404); res.end('not found'); return;
     }
@@ -99,6 +103,56 @@ const server = http.createServer((req, res) => {
     }, 20);
   });
 });
+
+// DeepSeek's Messages API (Anthropic wire format, `POST <base>/v1/messages`),
+// which dsh 0.2 uses instead of chat completions. Same behaviour as above:
+// a fixed reply, or in tool mode a tool call followed by a quote of its result.
+function messagesApi(req, res, body) {
+  let payload = {};
+  try { payload = JSON.parse(body || '{}'); } catch { /* ignore */ }
+  const model = payload.model ?? 'deepseek-chat';
+  const messages = payload.messages ?? [];
+  const blocks = (m) => (Array.isArray(m.content) ? m.content : []);
+  const toolResult = [...messages].reverse().flatMap((m) => blocks(m).filter((b) => b.type === 'tool_result'))[0];
+  const offers = (payload.tools ?? []).some((t) => t.name === TOOL);
+  let content; let stop;
+  if (TOOL) console.log('[mock] tools offered:', (payload.tools ?? []).map((t) => t.name).join(', ') || '(none)');
+  if (TOOL && !toolResult && offers) {
+    content = { type: 'tool_use', id: 'toolu_mock_1', name: TOOL, input: {} };
+    stop = 'tool_use';
+  } else if (TOOL && toolResult) {
+    const raw = toolResult.content;
+    const observed = typeof raw === 'string' ? raw
+      : Array.isArray(raw) ? raw.map((b) => b.text ?? JSON.stringify(b)).join('\n') : JSON.stringify(raw ?? {});
+    console.log('[mock] tool result:', observed.slice(0, 400));
+    content = { type: 'text', text: `TOOL-RESULT-BEGIN ${observed.slice(0, 800)} TOOL-RESULT-END` };
+    stop = 'end_turn';
+  } else {
+    content = { type: 'text', text: REPLY };
+    stop = 'end_turn';
+  }
+  const message = { id: 'msg_mock', type: 'message', role: 'assistant', model, stop_reason: null, stop_sequence: null, usage: { input_tokens: 10, output_tokens: 0 } };
+  if (payload.stream !== true) {
+    const final = content.type === 'tool_use' ? { ...content, input: JSON.parse(TOOL_ARGS) } : content;
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ ...message, content: [final], stop_reason: stop, usage: { input_tokens: 10, output_tokens: 12 } }));
+    return;
+  }
+  res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
+  const send = (data) => res.write(`event: ${data.type}\ndata: ${JSON.stringify(data)}\n\n`);
+  send({ type: 'message_start', message: { ...message, content: [] } });
+  if (content.type === 'tool_use') {
+    send({ type: 'content_block_start', index: 0, content_block: content });
+    send({ type: 'content_block_delta', index: 0, delta: { type: 'input_json_delta', partial_json: TOOL_ARGS } });
+  } else {
+    send({ type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } });
+    for (const word of content.text.split(' ')) send({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: word + ' ' } });
+  }
+  send({ type: 'content_block_stop', index: 0 });
+  send({ type: 'message_delta', delta: { stop_reason: stop, stop_sequence: null }, usage: { output_tokens: 12 } });
+  send({ type: 'message_stop' });
+  res.end();
+}
 
 // Bind all interfaces when asked (--lan), so a device on the same network can
 // reach it for on-device end-to-end tests; loopback only by default.

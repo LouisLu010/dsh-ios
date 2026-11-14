@@ -240,8 +240,8 @@
         if (![line containsString:@"expose_wasm"]) [out appendFormat:@"%@\n", line];
     } completion:^(ISHShellExecutionResult *result) {
         XCTAssertEqual(result.exitCode, 0);
-        XCTAssertTrue([out containsString:@"v22."], @"node 22 expected: %@", out);
-        XCTAssertTrue([out containsString:@"0.1."], @"dsh 0.1.x expected: %@", out);
+        XCTAssertTrue([out containsString:@"v24."], @"node 24 expected: %@", out);
+        XCTAssertTrue([out containsString:@"0.2."], @"dsh 0.2.x expected: %@", out);
         [done fulfill];
     }];
     [self waitForExpectations:@[done] timeout:120];

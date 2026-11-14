@@ -22,7 +22,7 @@ on:
     tags: ['v*']
   # Only when this workflow itself changes, so edits to it are proven on the PR.
   pull_request:
-    paths: ['.github/workflows/unsigned-ipa.yml']
+    paths: ['.github/workflows/unsigned-ipa.yml', 'rootfs/**', 'scripts/build-rootfs.sh', 'app/**']
 permissions:
   contents: read
 concurrency:
@@ -69,6 +69,14 @@ jobs:
       - name: Build guest image
         if: steps.rootfs-cache.outputs.cache-hit != 'true'
         run: scripts/build-rootfs.sh
+
+      # A freshly built image is booted in the emulator and driven through real
+      # agent turns (mock LLM, stub host bridge, a plugin installed with
+      # `dsh plugin`) before it is cached or shipped. A cached image passed
+      # this when it was built.
+      - name: Test guest image
+        if: steps.rootfs-cache.outputs.cache-hit != 'true'
+        run: tests/rootfs-test.sh build/root.tar.gz
 
       - name: Save guest image
         if: steps.rootfs-cache.outputs.cache-hit != 'true'
@@ -130,5 +138,9 @@ jobs:
         if: failure()
         with:
           name: build-logs
-          path: build/xcodebuild.log
+          path: |
+            build/xcodebuild.log
+            build/rootfs-test/*.txt
+            build/rootfs-test/*.log
+            build/rootfs-test/*.yml
           if-no-files-found: ignore

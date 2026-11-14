@@ -20,7 +20,7 @@
 
 <p align="center">
   <img alt="Platform" src="https://img.shields.io/badge/iOS%20%7C%20iPadOS-16%2B-blue">
-  <img alt="Guest" src="https://img.shields.io/badge/guest-Alpine%203.21%20%C2%B7%20Node%2022%20%C2%B7%20dsh%200.1-1f6feb">
+  <img alt="Guest" src="https://img.shields.io/badge/guest-Alpine%203.23%20%C2%B7%20Node%2024%20%C2%B7%20dsh%200.2-1f6feb">
   <img alt="Tests" src="https://img.shields.io/badge/tests-emu%20%C2%B7%20rootfs%20%C2%B7%20XCTest%20%C2%B7%20XCUITest-success">
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-GPL--3.0-green"></a>
 </p>
@@ -30,7 +30,7 @@
 > 也不会继续发布新版本。如需体验，请自行下载源码并构建运行。
 
 DSH 是一个原生 iOS app：它内嵌 [iSH-ARM64](ish-arm64) 用户态 Linux 模拟器，启动内置的
-Alpine Linux 镜像（含 Node.js 22 和 `@deepseek-ai/dsh`），托管 `dsh web` 进程，并在
+Alpine Linux 镜像（含 Node.js 24 和 `@deepseek-ai/dsh`），托管 `dsh web` 进程，并在
 `WKWebView` 里显示 harness 自己的 Web 界面。Agent 循环、会话、工具、shell 全部在设备本地
 运行；模型请求使用 harness 中配置的标准 DeepSeek API。
 
@@ -55,7 +55,7 @@ Alpine Linux 镜像（含 Node.js 22 和 `@deepseek-ai/dsh`），托管 `dsh web
 
 ## 特性
 
-- **标准 DeepSeek API**——Alpine 3.21、Node 22 和 dsh 都在 app 内运行；模型推理使用 DeepSeek API，API key 由 harness 管理。
+- **标准 DeepSeek API**——Alpine 3.23、Node 24 和 dsh 都在 app 内运行；模型推理使用 DeepSeek API，API key 由 harness 管理。
 - **原汁原味的 harness 界面**——dsh 自己的 Web 应用通过本机回环端口提供：会话、工作区、工具、权限预设、设置。
 - **随时可用的 shell**——DSH 状态栏的 `>_` 打开同一 guest 里的 Alpine 终端（`apk add`、`npm i -g`、查看 `~/.dsh`）；`⋯` 菜单提供 重新加载 / 服务日志 / 重启 Harness / 在 Safari 打开 / 关于。
 - **受监督的服务进程**——自动选择空闲端口、HTTP 就绪探测、崩溃退避重启、回到前台时健康检查、启动页实时日志。
@@ -73,7 +73,7 @@ Alpine Linux 镜像（含 Node.js 22 和 `@deepseek-ai/dsh`），托管 `dsh web
 ```bash
 git clone https://github.com/everettjf/dsh-ios.git && cd dsh-ios
 make emulator        # 构建 iSH-ARM64 命令行版 + fakefsify（用于构建和测试 guest 镜像）
-make rootfs          # build/root.tar.gz —— Alpine + Node 22 + dsh（约 95 MB，约 6 分钟，需要联网）
+make rootfs          # build/root.tar.gz —— Alpine + Node 24 + dsh（约 95 MB，约 6 分钟，需要联网）
 open DSH.xcodeproj   # 选 DSH scheme → 你的 iPad → 设置 team → Run
 ```
 
@@ -94,7 +94,7 @@ make run TEAM=XXXXXXXXXX DEVICE=<udid>   # 构建、签名、安装、启动到 
 │         │                                        ▲                │
 │  DSHHarness  (选端口 · 就绪探测 · 重启 · 健康检查)                │
 │         │  ISHShellExecutor                      │ 回环           │
-│  ┌──────▼──── iSH-ARM64 模拟器 (Alpine 3.21 aarch64) ─────────┐   │
+│  ┌──────▼──── iSH-ARM64 模拟器 (Alpine 3.23 aarch64) ─────────┐   │
 │  │  /usr/local/bin/dsh-serve                                  │   │
 │  │    → node --expose-internals @deepseek-ai/dsh web          │   │
 │  │        --host 127.0.0.1 --port N  ─────────────────────────┘   │
@@ -138,7 +138,7 @@ make test-device        # 再加 UI 测试（需先在 iPad 设置 ▸ 开发者
 | 套件 | 覆盖内容 | 运行环境 |
 |---|---|---|
 | `tests/emu-test.sh` | 新增的 NEON gadget 与 FMOV 修复（在 guest 里用 gcc 编译的 C 测试）、`waitpid` 回归、fetch polyfill（宿主 node，11 项） | macOS |
-| `tests/rootfs-test.sh` | 像 app 一样导入 `root.tar.gz`、guest 自检（node-pty/koffi/ripgrep/sharp）、profile patch、**通过 mock DeepSeek SSE 服务器的 headless 完整对话回路**、`dsh-serve` 本机可达 | macOS |
+| `tests/rootfs-test.sh` | 像 app 一样导入 `root.tar.gz`、guest 自检（node-pty/ripgrep/sharp）、profile patch、**通过 mock DeepSeek SSE 服务器的 headless 完整对话回路**、`dsh-serve` 本机可达 | macOS |
 | `DSHTests`（XCTest，宿主在 app 内） | 端口分配、日志环、就绪探测、监督器状态机（假 launcher + 本地 HTTP 服务器）；host bridge 的认证/能力开关/限流；guest 集成：真实服务响应、`dsh-selftest`、node/dsh 版本、镜像簿记、**用 app 内 mock 模型跑完整一轮 agent 对话并通过 bridge 调用 `device_info`** | 模拟器 / 真机 |
 | `DSHUITests`（XCUITest） | 启动到 DeepSeek Harness 界面、状态栏端口、服务日志页、终端页、横屏布局 | 模拟器 / 真机 |
 

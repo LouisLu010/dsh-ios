@@ -91,19 +91,19 @@ static NSLock *sLock = nil;
         if (status == UNAuthorizationStatusNotDetermined) {
             [self requestAuthorization];
             return [DSHHostBridgeResponse errorWithStatus:403 code:@"permission_denied"
-                                                  message:@"iOS has just asked the user whether DSH may send notifications. Tell them to allow it, then try again."
+                                                  message:@"iOS has just asked the user whether DeepSeek Harness may send notifications. Tell them to allow it, then try again."
                                               recoverable:YES];
         }
         if (status == UNAuthorizationStatusDenied)
             return [DSHHostBridgeResponse errorWithStatus:403 code:@"permission_denied"
-                                                  message:@"Notifications are turned off for DSH in iOS Settings ▸ Notifications."
+                                                  message:@"Notifications are turned off for DeepSeek Harness in iOS Settings ▸ Notifications."
                                               recoverable:YES];
 
         NSUInteger remaining = 0;
         if (![self takeRateLimitSlot:&remaining])
             return [DSHHostBridgeResponse errorWithStatus:429 code:@"rate_limited"
                                                   message:[NSString stringWithFormat:
-                                                           @"DSH has already sent %lu notifications this hour, which is the limit. Tell the user in the conversation instead.",
+                                                           @"DeepSeek Harness has already sent %lu notifications this hour, which is the limit. Tell the user in the conversation instead.",
                                                            (unsigned long) kMaxPerHour]
                                               recoverable:NO];
 

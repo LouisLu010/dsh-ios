@@ -108,7 +108,7 @@ static NSString *const kDSHUserAgentSuffix = @" DSH-iOS/1.0";
 
     UILabel *title = [UILabel new];
     title.translatesAutoresizingMaskIntoConstraints = NO;
-    title.text = @"DSH";
+    title.text = @"DeepSeek Harness";
     title.font = [UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightSemibold];
     title.textColor = UIColor.secondaryLabelColor;
     title.accessibilityIdentifier = @"dsh.title";
@@ -193,7 +193,7 @@ static NSString *const kDSHUserAgentSuffix = @" DSH-iOS/1.0";
         NSURL *url = DSHHarness.shared.baseURL;
         if (url) [UIApplication.sharedApplication openURL:url options:@{} completionHandler:nil];
     }];
-    UIAction *about = [UIAction actionWithTitle:@"About DSH" image:[UIImage systemImageNamed:@"info.circle"] identifier:@"dsh.about" handler:^(UIAction *a) { [weakSelf presentAbout]; }];
+    UIAction *about = [UIAction actionWithTitle:@"About DeepSeek Harness" image:[UIImage systemImageNamed:@"info.circle"] identifier:@"dsh.about" handler:^(UIAction *a) { [weakSelf presentAbout]; }];
     NSMutableArray<UIMenuElement *> *children = [NSMutableArray arrayWithObjects:reload, terminal, nil];
     [children addObjectsFromArray:@[capabilities, activity, log, [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[safari, restart, repair]], about]];
     return [UIMenu menuWithChildren:children];
@@ -240,7 +240,7 @@ static NSString *const kDSHUserAgentSuffix = @" DSH-iOS/1.0";
     }
     self.statusDot.backgroundColor = dotColor;
     self.statusDot.accessibilityValue = DSHHarnessStateName(h.state);
-    self.titleLabel.text = h.port ? [NSString stringWithFormat:@"DSH · :%u", h.port] : @"DSH";
+    self.titleLabel.text = h.port ? [NSString stringWithFormat:@"DeepSeek Harness · :%u", h.port] : @"DeepSeek Harness";
 
     // Before the guest is up, the boot coordinator owns the overlay.
     DSHBootCoordinator *boot = DSHBootCoordinator.shared;
@@ -331,14 +331,14 @@ static NSString *const kDSHUserAgentSuffix = @" DSH-iOS/1.0";
 
 - (void)confirmRepair {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Repair the Linux environment?"
-        message:@"On the next launch DSH will reinstall its bundled Linux system and migrate your sessions, credentials and workspace. The current system is kept until migration succeeds."
+        message:@"On the next launch DeepSeek Harness will reinstall its bundled Linux system and migrate your sessions, credentials and workspace. The current system is kept until migration succeeds."
         preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
     [alert addAction:[UIAlertAction actionWithTitle:@"Repair on Next Launch" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *a) {
         [DSHRootUpgrader.shared scheduleRepairOnNextLaunch];
         [DSHHarness.shared.log append:@"[dsh-ios] Linux environment repair scheduled for next launch"];
         UIAlertController *done = [UIAlertController alertControllerWithTitle:@"Repair scheduled"
-            message:@"Close DSH and open it again. Your user data will be migrated after the fresh system boots."
+            message:@"Close DeepSeek Harness and open it again. Your user data will be migrated after the fresh system boots."
             preferredStyle:UIAlertControllerStyleAlert];
         [done addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
         [self presentViewController:done animated:YES completion:nil];
@@ -390,10 +390,10 @@ static NSString *const kDSHUserAgentSuffix = @" DSH-iOS/1.0";
                          [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"],
                          [NSBundle.mainBundle objectForInfoDictionaryKey:(NSString *) kCFBundleVersionKey]];
     NSString *message = [NSString stringWithFormat:
-                         @"DSH %@\n\nDeepSeek Harness running in an Alpine Linux guest (iSH ARM64 emulator) inside this app.\n\nServer: %@\nState: %@\nStartup: %.1fs · restarts: %lu\n\n%@",
+                         @"DeepSeek Harness %@\n\nRuns in an Alpine Linux guest (iSH ARM64 emulator) inside this app.\n\nServer: %@\nState: %@\nStartup: %.1fs · restarts: %lu\n\n%@",
                          version, h.baseURL.absoluteString ?: @"–", DSHHarnessStateName(h.state), h.lastStartupDuration,
                          (unsigned long) h.restartCount, DSHStartupMetrics.shared.summary];
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"About DSH" message:message preferredStyle:UIAlertControllerStyleAlert];
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"About DeepSeek Harness" message:message preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
 }
@@ -407,10 +407,10 @@ static const NSTimeInterval kInterruptedNoticeVisible = 8;
     // The bar, not an alert: the user came back to carry on, and a dialog to
     // dismiss first would be in the way of the thing they returned for.
     BOOL ready = [note.userInfo[DSHTurnRecoveryStatusKey] isEqualToString:@"server-ready"];
-    self.titleLabel.text = ready ? @"DSH · checking interrupted turn" : @"DSH · turn interrupted";
+    self.titleLabel.text = ready ? @"DeepSeek Harness · checking interrupted turn" : @"DeepSeek Harness · turn interrupted";
     self.titleLabel.accessibilityLabel =
-        ready ? @"A turn was interrupted while DSH was away. The server is available; check the conversation before retrying."
-              : @"A turn was interrupted while DSH was away and the server is unavailable. DSH is recovering it.";
+        ready ? @"A turn was interrupted while DeepSeek Harness was away. The server is available; check the conversation before retrying."
+              : @"A turn was interrupted while DeepSeek Harness was away and the server is unavailable. DeepSeek Harness is recovering it.";
     [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(applyHarnessState) object:nil];
     [self performSelector:@selector(applyHarnessState) withObject:nil afterDelay:kInterruptedNoticeVisible];
 }
