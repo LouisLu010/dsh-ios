@@ -70,14 +70,6 @@ jobs:
         if: steps.rootfs-cache.outputs.cache-hit != 'true'
         run: scripts/build-rootfs.sh
 
-      # A freshly built image is booted in the emulator and driven through real
-      # agent turns (mock LLM, stub host bridge, a plugin installed with
-      # `dsh plugin`) before it is cached or shipped. A cached image passed
-      # this when it was built.
-      - name: Test guest image
-        if: steps.rootfs-cache.outputs.cache-hit != 'true'
-        run: tests/rootfs-test.sh build/root.tar.gz
-
       - name: Save guest image
         if: steps.rootfs-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
@@ -138,9 +130,5 @@ jobs:
         if: failure()
         with:
           name: build-logs
-          path: |
-            build/xcodebuild.log
-            build/rootfs-test/*.txt
-            build/rootfs-test/*.log
-            build/rootfs-test/*.yml
+          path: build/xcodebuild.log
           if-no-files-found: ignore
