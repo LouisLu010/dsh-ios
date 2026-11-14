@@ -155,15 +155,15 @@ static NSString *const kPrevMountPoint = @"/mnt/dsh-previous-root";
         completion(NO, e);
         return;
     }
-    // The harness home carries user data (sessions, credentials, settings) and
-    // the patch files this image ships. Copy the whole directory for the data,
-    // then put this image's patches back — otherwise an update silently keeps
-    // the previous image's configuration, including which plugins are mounted.
+    // The harness home is all user data: sessions, credentials, settings, the
+    // user's own cordis.patch.yml layers and the plugins `dsh plugin` put in
+    // each profile. Copy it whole. DSH's own configuration lives in the
+    // @dsh-ios bundles inside the image, so the new image brings its own, and
+    // dsh-serve (dsh-ios-heal-home) lists them in every profile on start —
+    // including a home that still carries an older image's patch files.
     NSString *script = [NSString stringWithFormat:
         @"set -e; P=%@; "
         @"if [ -d \"$P/root/.dsh\" ]; then rm -rf /root/.dsh && cp -a \"$P/root/.dsh\" /root/.dsh; fi; "
-        @"install -m 0644 /usr/local/share/dsh/home.patch.yml /root/.dsh/cordis.patch.yml; "
-        @"[ -d /root/.dsh/profiles/web ] && install -m 0644 /usr/local/share/dsh/cordis.patch.yml /root/.dsh/profiles/web/cordis.patch.yml; "
         @"if [ -d \"$P/root/workspace\" ]; then mkdir -p /root/workspace && cp -a \"$P/root/workspace/.\" /root/workspace/; fi; "
         @"for f in .gitconfig .ssh .npmrc .profile .ashrc; do [ -e \"$P/root/$f\" ] && cp -a \"$P/root/$f\" /root/ || true; done; "
         @"echo MIGRATION-DONE", kPrevMountPoint];

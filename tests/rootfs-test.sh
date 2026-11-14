@@ -85,6 +85,40 @@ guest 'export HOME=/root; node --expose-internals /usr/local/lib/node_modules/@d
 grep -A4 '^- id: sandbox-policy' "$WORK/config.yml" > "$WORK/sandbox-row.yml"
 check "sandbox-policy patched to danger-full-access" grep -q 'danger-full-access' "$WORK/sandbox-row.yml"
 check "hmr row present (needs --expose-internals)"    grep -q 'cordis-plugin-hmr' "$WORK/config.yml"
+check "sandbox policy comes from the @dsh-ios/web bundle" grep -q '^# == .*@dsh-ios/web' "$WORK/config.yml"
+check "host bridge comes from the @dsh-ios/bridge bundle" grep -q '^# == @dsh-ios/bridge' "$WORK/config.yml"
+
+echo "== harness home has the desktop layout (user layers belong to the user)"
+HOME_DIR="$WORK/fakefs/data/root/.dsh"
+check "no home-level user layer by default"        test ! -e "$HOME_DIR/cordis.patch.yml"
+check "web user layer is dsh's empty template"     grep -qx '\[\]' "$HOME_DIR/profiles/web/cordis.patch.yml"
+check "web profile lists @dsh-ios/web"             grep -q '"@dsh-ios/web"' "$HOME_DIR/profiles/web/package.json"
+check "web profile lists @dsh-ios/bridge"          grep -q '"@dsh-ios/bridge"' "$HOME_DIR/profiles/web/package.json"
+check "headless profile lists @dsh-ios/bridge"     grep -q '"@dsh-ios/bridge"' "$HOME_DIR/profiles/headless/package.json"
+guest 'pnpm --version' > "$WORK/pnpm.txt"
+check "pnpm on PATH for dsh plugin"                grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+' "$WORK/pnpm.txt"
+
+# A user override must survive the start-up heal and win over the bundle.
+guest "export HOME=/root; cp /root/.dsh/profiles/web/cordis.patch.yml /tmp/web-layer.bak; \
+       printf '%s\n' '- id: permission' '  config:' '    defaultPreset: danger-full-access' > /root/.dsh/profiles/web/cordis.patch.yml; \
+       dsh-ios-heal-home; echo heal-exit=\$?; dsh --profile web --dump-config | grep -A3 '^- id: permission'; \
+       cp /tmp/web-layer.bak /root/.dsh/profiles/web/cordis.patch.yml" > "$WORK/user-layer.txt"
+sed 's/^/     /' "$WORK/user-layer.txt"
+check "heal leaves a user's own layer alone"       grep -q 'heal-exit=0' "$WORK/user-layer.txt"
+check "user layer overrides the DSH bundle"        grep -q 'defaultPreset: danger-full-access' "$WORK/user-layer.txt"
+
+# A home migrated from an older image carries DSH's old copies in the user
+# layers and no DSH bundles; the heal must convert it.
+guest "export HOME=/root DSH_HOME=/tmp/legacy-home; mkdir -p /tmp/legacy-home/profiles/web; \
+       printf '%s\n' '{\"name\":\"dsh-profile-web\",\"private\":true,\"dependencies\":{},\"dsh\":{\"profile\":{\"bundles\":[\"@deepseek-ai/dsh-base\",\"@deepseek-ai/dsh-web-app\"]}}}' > /tmp/legacy-home/profiles/web/package.json; \
+       cp /usr/local/share/dsh/legacy/profile.patch.yml /tmp/legacy-home/profiles/web/cordis.patch.yml; \
+       cp /usr/local/share/dsh/legacy/home.patch.yml /tmp/legacy-home/cordis.patch.yml; \
+       dsh-ios-heal-home; test ! -e /tmp/legacy-home/cordis.patch.yml && echo home-layer-gone; \
+       grep -qx '\[\]' /tmp/legacy-home/profiles/web/cordis.patch.yml && echo web-layer-empty; rm -rf /tmp/legacy-home" > "$WORK/legacy-home.txt"
+sed 's/^/     /' "$WORK/legacy-home.txt"
+check "legacy: DSH bundles added to the web profile" grep -q 'bundles = @deepseek-ai/dsh-base, @deepseek-ai/dsh-web-app, @dsh-ios/web, @dsh-ios/bridge' "$WORK/legacy-home.txt"
+check "legacy: shipped home layer removed"           grep -q 'home-layer-gone' "$WORK/legacy-home.txt"
+check "legacy: shipped web layer handed back empty"  grep -q 'web-layer-empty' "$WORK/legacy-home.txt"
 
 echo "== headless LLM round trip through mock DeepSeek server (SSE via fetch polyfill)"
 node "$HERE/mock-deepseek.mjs" "$MOCK_PORT" > "$WORK/mock.log" 2>&1 &
@@ -169,6 +203,30 @@ guest "export HOME=/root DEEPSEEK_API_KEY=test DEEPSEEK_BASE_URL=http://127.0.0.
        cd /root/workspace; node --expose-internals /usr/local/lib/node_modules/@deepseek-ai/dsh/lib/bin.js --profile headless 'What device is this?'" > "$WORK/bridge-denied.txt"
 check "wrong bridge token is refused" grep -q 'unauthorized' "$WORK/bridge-denied.txt"
 
+echo "== third-party plugin: dsh plugin add, then the agent calls its tool"
+# Same flow as on desktop: pnpm installs the package into the profile and
+# dsh lists it as a bundle layer. The fixture has no dependencies, so the
+# install needs no network.
+COPYFILE_DISABLE=1 tar czf "$WORK/plugin-fixture.tgz" -C "$HERE/fixtures" dsh-plugin-fixture
+"$ISH_BUILD/ish" -f "$WORK/fakefs" /bin/sh -c 'cd /root && tar xzf -' < "$WORK/plugin-fixture.tgz" 2>&1 | filter
+GUEST_TIMEOUT="${DSH_PLUGIN_TIMEOUT:-300}" guest "export HOME=/root; cd /root/workspace; \
+       dsh plugin --profile headless add --offline file:/root/dsh-plugin-fixture > /tmp/plugin-add.log 2>&1; rc=\$?; \
+       tail -3 /tmp/plugin-add.log; echo plugin-exit=\$rc" > "$WORK/plugin-add.txt"
+sed 's/^/     /' "$WORK/plugin-add.txt"
+check "dsh plugin add succeeds"                     grep -q 'plugin-exit=0' "$WORK/plugin-add.txt"
+check "plugin listed as a bundle layer"             grep -q '"dsh-plugin-fixture"' "$HOME_DIR/profiles/headless/package.json"
+check "DSH bundles stay ahead of the user's plugin" node -e '
+const b = require(process.argv[1]).dsh.profile.bundles;
+process.exit(b.indexOf("@dsh-ios/bridge") >= 0 && b.indexOf("@dsh-ios/bridge") < b.indexOf("dsh-plugin-fixture") ? 0 : 1);' "$HOME_DIR/profiles/headless/package.json"
+kill $MOCK_PID 2>/dev/null
+node "$HERE/mock-deepseek.mjs" "$MOCK_PORT" --tool fixture_ping > "$WORK/mock-fixture.log" 2>&1 &
+MOCK_PID=$!
+sleep 1
+guest "export HOME=/root DEEPSEEK_API_KEY=test DEEPSEEK_BASE_URL=http://127.0.0.1:$MOCK_PORT; \
+       cd /root/workspace; dsh --profile headless 'Ping the fixture.'" > "$WORK/tool-fixture.txt"
+sed 's/^/     /' "$WORK/tool-fixture.txt" | tail -3
+check "installed plugin's tool reached the model"   grep -q 'FIXTURE-PONG-41c9' "$WORK/tool-fixture.txt"
+
 # The same image must still work with no bridge at all (CLI, tests, macOS).
 guest "export HOME=/root; node --expose-internals /usr/local/lib/node_modules/@deepseek-ai/dsh/lib/bin.js --profile web --dump-config" > "$WORK/config-nobridge.yml"
 check "plugin loads without bridge environment" grep -q 'host-bridge' "$WORK/config-nobridge.yml"
@@ -192,6 +250,9 @@ sleep 5
 check "server still alive after 5s" curl -fs -o /dev/null "http://127.0.0.1:$PORT/"
 grep -Eq 'fatal|Error:' "$WORK/dsh-serve.log"; noerr=$?
 check "no fatal error in dsh-serve log" test "$noerr" != 0
+grep -q 'dsh-ios-heal-home failed' "$WORK/dsh-serve.log"; healfail=$?
+check "start-up heal succeeded"                     test "$healfail" != 0
+check "start-up heal kept the user's plugin"        grep -q '"dsh-plugin-fixture"' "$HOME_DIR/profiles/headless/package.json"
 
 echo
 echo "passed=$pass failed=$fail"

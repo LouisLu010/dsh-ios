@@ -97,17 +97,20 @@ ish <<EOF
 set -e
 export HOME=/root
 chmod +x /usr/local/bin/* /usr/local/lib/node_modules/@deepseek-ai/dsh/lib/bin.js
-ln -sf ../lib/node_modules/@deepseek-ai/dsh/lib/bin.js /usr/local/bin/dsh
+# pnpm is what \`dsh plugin\` forwards to, as on desktop (pinned in rootfs/staging).
+chmod +x /usr/local/lib/node_modules/pnpm/bin/pnpm.cjs /usr/local/lib/node_modules/pnpm/bin/pnpx.cjs
+ln -sf ../lib/node_modules/pnpm/bin/pnpm.cjs /usr/local/bin/pnpm
+ln -sf ../lib/node_modules/pnpm/bin/pnpx.cjs /usr/local/bin/pnpx
 cd /usr/local/lib/node_modules/node-pty
 rm -rf build prebuilds
 npx --yes node-gyp rebuild --nodedir=/usr 2>&1 | tail -1
 test -f build/Release/pty.node
-# Pre-create the web profile so first launch on device does no scaffolding,
-# then drop in our patch layer.
+# Pre-create the web and headless profiles from dsh's own templates so first
+# launch on device does no scaffolding, then list the @dsh-ios bundles in
+# them. The user patch layers stay dsh's empty templates.
 node --expose-internals /usr/local/lib/node_modules/@deepseek-ai/dsh/lib/bin.js --profile web --dump-config >/dev/null
-install -m 0644 /usr/local/share/dsh/cordis.patch.yml /root/.dsh/profiles/web/cordis.patch.yml
-# Home-level layer: applies to every profile (see rootfs/overlay/.../home.patch.yml).
-install -m 0644 /usr/local/share/dsh/home.patch.yml /root/.dsh/cordis.patch.yml
+node --expose-internals /usr/local/lib/node_modules/@deepseek-ai/dsh/lib/bin.js --profile headless --dump-config >/dev/null
+DSH_HOME=/root/.dsh dsh-ios-heal-home
 mkdir -p /root/workspace
 # Slim down: build tooling is only needed for node-pty.
 apk del --no-progress nodejs-dev python3 make g++ >/dev/null 2>&1 || true

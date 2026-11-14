@@ -31,8 +31,8 @@ plumbing, no FFI, and no changes to the emulator.
 `name` / `inject` / `Config` / `apply(ctx, config)`, and a tool is registered with
 `ctx.tools.register(defineTool({...}))` (see `@deepseek-ai/dsh-tool-todo` for the
 canonical shape). Adding a capability therefore needs no fork of dsh — we mount
-one extra plugin through the profile patch we already ship in
-`rootfs/overlay/usr/local/share/dsh/cordis.patch.yml`.
+one extra plugin through the `@dsh-ios/bridge` bundle in
+`rootfs/overlay/usr/local/lib/node_modules/@dsh-ios/bridge/cordis.patch.yml`.
 
 ```
 ┌─ DSH.app ─────────────────────────────────────────────────────────────┐
@@ -414,7 +414,7 @@ in [roadmap.md](roadmap.md); the phases below give the design detail.
 `DSHLogBuffer`), capability registry with per-capability on/off state persisted
 in `NSUserDefaults`, `GET /v1/capabilities` + `GET /v1/device`. Guest side: the
 `dsh-host-bridge` plugin package baked into the image under
-`/usr/local/lib/dsh-plugins/`, mounted from `cordis.patch.yml`, exposing
+`/usr/local/lib/dsh-plugins/`, mounted by the `@dsh-ios/bridge` bundle, exposing
 `device_info`. Env (`DSH_HOST_BRIDGE_URL`, `DSH_HOST_BRIDGE_TOKEN`) injected via
 the existing `DSHHarness.extraEnvironment`.
 *Tests (all green, run locally — `make test` plus `make test-device-unit`):* `DSHHostBridgeTests` covers auth, the loopback `Host`
@@ -434,8 +434,13 @@ What Phase 0 taught us, worth keeping in mind for later capabilities:
 - **An image update must not silently keep the previous image's configuration.**
   `DSHRootUpgrader` copies the whole harness home for the user's data, which
   also copied the old `cordis.patch.yml` — so a new plugin shipped with a new
-  image never got mounted. Migration now restores the image's own patches, and
-  `dsh-serve` re-installs them on every start so the state is self-healing.
+  image never got mounted. The first fix re-installed the image's patches over
+  the user's `cordis.patch.yml` files on every start, which made them unusable
+  for the user's own plugins. DSH's configuration now lives in the
+  `@dsh-ios/web` and `@dsh-ios/bridge` bundles inside the image, so an update
+  replaces it with the image. `dsh-ios-heal-home` (run by `dsh-serve` on every
+  start) lists the bundles in every profile, and the user layers are left to
+  the user as on desktop.
 
 - Tool registration must be **synchronous** inside `apply()`. Cordis tracks
   registrations as reversible effects of the plugin; an async registration both
@@ -446,9 +451,10 @@ What Phase 0 taught us, worth keeping in mind for later capabilities:
   return `ContentBlock[]`, not a string. A field the app adds without updating
   the plugin's schema fails every call; `testDeviceSnapshotMatchesThePluginSchema`
   is the tripwire.
-- The plugin is mounted from the **home-level** patch
-  (`~/.dsh/cordis.patch.yml`, written by `scripts/build-rootfs.sh`) so every
-  profile gets it — `web` for the app, `headless` for the tests.
+- The plugin is mounted by the `@dsh-ios/bridge` bundle, which
+  `dsh-ios-heal-home` lists in **every** profile's `dsh.profile.bundles` —
+  `web` for the app, `headless` for the tests. (It used to be the home-level
+  user layer `~/.dsh/cordis.patch.yml`; that file now belongs to the user.)
 
 **Phase 1 — settings + confirmation UI.**
 A capabilities screen in the app (list, toggles, "last used"), and the

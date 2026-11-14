@@ -1,0 +1,129 @@
+#!/usr/bin/env node
+// Keep the harness home in the layout desktop dsh uses, with DSH's own
+// configuration living in bundle layers rather than in the user's files.
+//
+//   1. Every profile under $DSH_HOME/profiles lists @dsh-ios/bridge in its
+//      dsh.profile.bundles, and the web profile also lists @dsh-ios/web.
+//      They go right after the in-box @deepseek-ai/* bundles, so bundles the
+//      user installs with `dsh plugin` still come after (and can override)
+//      them. Anything else in the manifest is left alone.
+//   2. Images before this layout overwrote the two user patch layers
+//      ($DSH_HOME/cordis.patch.yml and profiles/<name>/cordis.patch.yml) with
+//      DSH's own configuration on every start. A file whose content is
+//      byte-for-byte one of those shipped copies is handed back to the user:
+//      the home-level file is removed (desktop has none by default) and a
+//      profile file becomes dsh's empty template. Any other content is the
+//      user's and is never touched.
+//
+// Idempotent; dsh-serve runs it on every start and build-rootfs.sh once at
+// image build time. Prints one line per change.
+//
+//   DSH_HOME              harness home (default ~/.dsh)
+//   DSH_IOS_LEGACY_DIR    shipped copies of the old patch files
+//                         (default /usr/local/share/dsh/legacy)
+"use strict";
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+
+const home = process.env.DSH_HOME || path.join(os.homedir(), ".dsh");
+const legacyDir = process.env.DSH_IOS_LEGACY_DIR || "/usr/local/share/dsh/legacy";
+
+const BRIDGE = "@dsh-ios/bridge";
+const WEB = "@dsh-ios/web";
+/** DSH bundles each profile needs, in layer order. */
+const requiredBundles = (profile) => (profile === "web" ? [WEB, BRIDGE] : [BRIDGE]);
+
+// Same text dsh-app-boot's initProfile writes for a new profile.
+const PROFILE_PATCH_TEMPLATE = `# Your patch layer for this dsh profile, applied after every bundle layer:
+# a top-level YAML array of loader patch entries (id-targeted config
+# overrides, disables, and insert lists; \`!!js\` expressions allowed).
+[]
+`;
+
+const PATCH = "cordis.patch.yml";
+const log = (line) => process.stdout.write(`dsh-ios-heal-home: ${line}\n`);
+
+function readOrNull(file) {
+  try {
+    return fs.readFileSync(file, "utf8");
+  } catch (error) {
+    if (error.code === "ENOENT") return null;
+    throw error;
+  }
+}
+
+const legacy = ["profile.patch.yml", "home.patch.yml"]
+  .map((name) => readOrNull(path.join(legacyDir, name)))
+  .filter((text) => text !== null);
+const isLegacy = (text) => text !== null && legacy.includes(text);
+
+function profileDirs() {
+  const root = path.join(home, "profiles");
+  let entries;
+  try {
+    entries = fs.readdirSync(root, { withFileTypes: true });
+  } catch (error) {
+    if (error.code === "ENOENT") return [];
+    throw error;
+  }
+  return entries
+    .filter((entry) => entry.isDirectory() && entry.name !== "node_modules" && !entry.name.startsWith("."))
+    .map((entry) => ({ name: entry.name, dir: path.join(root, entry.name) }))
+    .filter(({ dir }) => fs.existsSync(path.join(dir, "package.json")));
+}
+
+/** Insert the missing DSH bundles after the in-box ones; returns whether the list changed. */
+function healBundles(bundles, required) {
+  let changed = false;
+  let at = 0;
+  bundles.forEach((name, index) => {
+    if (typeof name === "string" && name.startsWith("@deepseek-ai/")) at = index + 1;
+  });
+  for (const name of required) {
+    const existing = bundles.indexOf(name);
+    if (existing >= 0) {
+      at = Math.max(at, existing + 1);
+      continue;
+    }
+    bundles.splice(at, 0, name);
+    at += 1;
+    changed = true;
+  }
+  return changed;
+}
+
+function healProfile({ name, dir }) {
+  const manifestPath = path.join(dir, "package.json");
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  const bundles = manifest?.dsh?.profile?.bundles;
+  if (!Array.isArray(bundles)) {
+    // Not a profile manifest dsh would boot; leave it for dsh to report.
+    log(`skipped profile ${name}: package.json has no dsh.profile.bundles list`);
+  } else if (healBundles(bundles, requiredBundles(name))) {
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest, undefined, 2) + "\n");
+    log(`profile ${name}: bundles = ${bundles.join(", ")}`);
+  }
+
+  const patchPath = path.join(dir, PATCH);
+  if (isLegacy(readOrNull(patchPath))) {
+    fs.writeFileSync(patchPath, PROFILE_PATCH_TEMPLATE);
+    log(`profile ${name}: ${PATCH} handed back to the user (was DSH's shipped copy)`);
+  }
+}
+
+function main() {
+  const homePatch = path.join(home, PATCH);
+  if (isLegacy(readOrNull(homePatch))) {
+    fs.unlinkSync(homePatch);
+    log(`removed ${homePatch} (was DSH's shipped copy)`);
+  }
+  for (const profile of profileDirs()) healProfile(profile);
+}
+
+try {
+  main();
+} catch (error) {
+  process.stderr.write(`dsh-ios-heal-home: ${error?.stack ?? error}\n`);
+  process.exit(1);
+}
