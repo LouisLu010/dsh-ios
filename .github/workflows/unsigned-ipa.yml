@@ -1,0 +1,134 @@
+# Builds an unsigned DSH.ipa for sideloading (AltStore, SideStore, Sideloadly,
+# TrollStore, or `codesign` with your own certificate).
+#
+# The guest image (build/root.tar.gz) is the slow part: scripts/build-rootfs.sh
+# boots Alpine inside the iSH-ARM64 CLI emulator and installs Node + dsh there.
+# It is cached on the inputs that decide its contents, so a run that only
+# changes app code reuses the previous image.
+#
+# The IPA carries no signature and no entitlements. Whoever signs it applies
+# their own; app/DSH.entitlements is uploaded next to it for reference
+# (HealthKit needs a paid developer account; without it the Health capability
+# reports permission_denied and everything else works).
+name: unsigned-ipa
+on:
+  workflow_dispatch:
+    inputs:
+      rebuild_rootfs:
+        description: Rebuild the guest image even if a cached one matches
+        type: boolean
+        default: false
+  push:
+    tags: ['v*']
+  # Only when this workflow itself changes, so edits to it are proven on the PR.
+  pull_request:
+    paths: ['.github/workflows/unsigned-ipa.yml']
+permissions:
+  contents: read
+concurrency:
+  group: unsigned-ipa-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    # Apple Silicon is required: the emulator's AArch64 gadgets are host arm64
+    # assembly, and build-rootfs.sh runs the guest on the build machine.
+    runs-on: macos-26
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: |
+          brew install meson ninja lld libarchive pkg-config
+          # ld.lld builds the guest VDSO; libarchive (keg-only) is for fakefsify.
+          echo "$(brew --prefix lld)/bin" >> "$GITHUB_PATH"
+          echo "PKG_CONFIG_PATH=$(brew --prefix libarchive)/lib/pkgconfig" >> "$GITHUB_ENV"
+          xcodebuild -version
+          node -v; npm -v; python3 --version
+
+      # Computed once: build-rootfs.sh writes the staging lockfile back, which
+      # must not change the key between restore and save.
+      - name: Guest image cache key
+        id: rootfs-key
+        run: echo "key=rootfs-${{ hashFiles('rootfs/**', 'scripts/build-rootfs.sh', 'ish-arm64/app/RootfsPatch.bundle/**') }}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore guest image
+        id: rootfs-cache
+        if: ${{ !inputs.rebuild_rootfs }}
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            build/root.tar.gz
+            build/root.tar.gz.sha256
+          key: ${{ steps.rootfs-key.outputs.key }}
+
+      - name: Build emulator CLI
+        if: steps.rootfs-cache.outputs.cache-hit != 'true'
+        run: make emulator
+
+      - name: Build guest image
+        if: steps.rootfs-cache.outputs.cache-hit != 'true'
+        run: scripts/build-rootfs.sh
+
+      - name: Save guest image
+        if: steps.rootfs-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            build/root.tar.gz
+            build/root.tar.gz.sha256
+          key: ${{ steps.rootfs-key.outputs.key }}
+
+      - name: Archive (unsigned)
+        # The committed DSH.xcodeproj is used as-is; regenerating it needs the
+        # xcodeproj gem and must not change it anyway (tests/scripts-test.sh).
+        run: |
+          mkdir -p build
+          xcodebuild -project DSH.xcodeproj -scheme DSH -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/DSH.xcarchive \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_ENTITLEMENTS="" DEVELOPMENT_TEAM="" DSH_DEVELOPMENT_TEAM="" \
+            archive > build/xcodebuild.log 2>&1 || { grep -E 'error:' build/xcodebuild.log | head -50; tail -80 build/xcodebuild.log; exit 1; }
+          tail -3 build/xcodebuild.log
+          test -d build/DSH.xcarchive/Products/Applications/DSH.app
+
+      - name: Package IPA
+        id: ipa
+        run: |
+          set -euo pipefail
+          version=$(sed -n 's/^MARKETING_VERSION = //p' app/AppDSH.xcconfig | tr -d ' ')
+          build=$(sed -n 's/^CURRENT_PROJECT_VERSION = //p' app/AppDSH.xcconfig | tr -d ' ')
+          name="DSH-${version}-${build}-$(git rev-parse --short HEAD)-unsigned"
+          app=build/DSH.xcarchive/Products/Applications/DSH.app
+
+          # The app must carry the guest image, or the first launch has nothing to boot.
+          test -s "$app/root.tar.gz"
+          test -s "$app/root.tar.gz.sha256"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist"
+
+          rm -rf build/ipa && mkdir -p build/ipa/Payload
+          ditto "$app" build/ipa/Payload/DSH.app
+          (cd build/ipa && zip -qry "../$name.ipa" Payload)
+          shasum -a 256 "build/$name.ipa" | tee "build/$name.ipa.sha256"
+          ls -lh "build/$name.ipa"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.ipa.outputs.name }}
+          path: |
+            build/${{ steps.ipa.outputs.name }}.ipa
+            build/${{ steps.ipa.outputs.name }}.ipa.sha256
+            app/DSH.entitlements
+          if-no-files-found: error
+          compression-level: 0   # the IPA is already a zip
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: build-logs
+          path: build/xcodebuild.log
+          if-no-files-found: ignore

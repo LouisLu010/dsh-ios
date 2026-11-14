@@ -72,6 +72,14 @@ out="$(guest 'cd /tmp && gcc -o wait wait.c && ./wait')"
 echo "$out" | sed 's/^/     /'
 check "waitpid survives a >1s child" grep -q 'WAIT OK' <<<"$out"
 
+echo "== uname with a long host name"
+# The guest's nodename field holds 64 bytes; macOS host names can be longer
+# (GitHub's macOS runners use long FQDNs), which used to abort the emulator
+# in sys_uname. On a short host name this only checks the field is sane.
+out="$(guest 'n=$(uname -n) && echo "UNAME OK ${#n}"')"
+echo "     host: $(hostname | wc -c | tr -d ' ') bytes, guest: $out"
+check "uname -n returns at most 64 bytes" bash -c '[[ "$1" =~ ^UNAME\ OK\ ([0-9]+)$ ]] && [ "${BASH_REMATCH[1]}" -le 64 ]' _ "$out"
+
 echo "== fetch polyfill (host node)"
 if command -v node >/dev/null; then
     node "$HERE/mock-deepseek.mjs" 3198 > "$WORK/mock.log" 2>&1 &
