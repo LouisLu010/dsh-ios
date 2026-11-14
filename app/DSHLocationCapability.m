@@ -102,7 +102,7 @@ static DSHLocationFix *sPrompt;
     DSHCapability *capability =
         [[DSHCapability alloc] initWithIdentifier:DSHCapabilityLocationRead
                                             title:@"Location"
-                                          details:@"One fix at a time, when the agent asks. DeepSeek Harness never tracks you in the background."
+                                          details:@"One fix at a time, when the agent asks. The agent never gets a history or a background feed of your location."
                                              gate:DSHCapabilityGateSystemPermission
                                  enabledByDefault:YES
                                         // Core Location is present on every supported iOS

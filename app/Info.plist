@@ -31,6 +31,10 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>DeepSeek Harness lets the agent read your calendar when you turn the Calendar capability on.</string>
 	<key>NSCalendarsUsageDescription</key>
@@ -44,9 +48,9 @@
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>DeepSeek Harness runs a local web server inside the app and connects to it over loopback.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>DeepSeek Harness uses your location only while you are using the app, when the agent needs it for something you asked and after you switch Location on in DeepSeek Harness ▸ Capabilities. DeepSeek Harness does not track your location in the background.</string>
+	<string>DeepSeek Harness gives your location to the agent only when it needs it for something you asked, and only after you switch Location on in Capabilities. If you turn on Keep Running in Background, it also uses coarse location updates to keep the app running; those readings are discarded.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>DeepSeek Harness asks for your location only when the agent needs it for something you asked, and only after you switch Location on in DeepSeek Harness ▸ Capabilities. It never tracks you in the background.</string>
+	<string>DeepSeek Harness gives your location to the agent only when it needs it for something you asked, and only after you switch Location on in Capabilities. If you turn on Keep Running in Background, it also uses coarse location updates to keep the app running; those readings are discarded.</string>
 	<key>NSRemindersFullAccessUsageDescription</key>
 	<string>DeepSeek Harness lets the agent read your reminders when you turn the Reminders capability on.</string>
 	<key>NSRemindersUsageDescription</key>

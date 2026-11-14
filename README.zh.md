@@ -257,6 +257,27 @@ DSH 旧版内置副本的文件会被重置为 dsh 的空模板，其他内容�
 
 **为什么是 GPL？** 因为 app 编译并静态链接了 GPLv3 的 iSH 模拟器，见[许可证](#许可证)。
 
+## 后台运行
+
+iOS 在你切到别的 app 后会立即暂停当前 app，而整个 harness 都跑在 app 里，所以 agent 的回合也会停下。
+**⋯ ▸ Keep Running in Background** 可以让它继续运行。实现方式是持续的低精度定位更新，这是 iOS 为此提供的唯一后台模式：
+
+- 默认关闭。第一次打开时会请求「使用 App 期间」的定位权限。
+- 定位数据直接丢弃，不保存、不记录，也不交给 agent；`location_query` 仍然按原来的方式逐次授权。
+- app 在后台运行时，iOS 会显示定位指示器。
+- 更耗电。App Store 审核不接受只为保活而使用后台定位，所以这个功能面向侧载安装。
+
+## 备份：导出与导入
+
+**⋯ ▸ Export Data…** 生成一个 `DeepSeek-Harness-backup-<日期>.tar.gz`，保存到「文件」。里面有 `~/.dsh`
+（会话、包括 API key 在内的凭据、设置、你的 patch 层和已装插件）、`/root/workspace`，以及标记文件
+`dsh-backup.json`。请妥善保管这个文件。
+
+**⋯ ▸ Import Data…** 用备份替换上述两个目录，然后重启 harness。导入前会先检查归档：必须包含
+`dsh-backup.json` 和 `.dsh`，且不能有 `.dsh` 和 `workspace` 以外的内容。被替换的数据保留在
+`/root/.dsh.before-import` 和 `/root/workspace.before-import`，直到下一次导入。旧镜像导出的备份也能导入：
+`dsh-serve` 启动时会给其中的 profile 补上 DSH 的组合包。
+
 ## 参与贡献
 
 欢迎 issue 和 PR。提 PR 前请先跑 `make test`（需要 Apple Silicon Mac + Xcode）；改动模拟器时请在

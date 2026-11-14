@@ -332,6 +332,35 @@ Limits compared with desktop:
 **Why GPL?** Because the app compiles and statically links the GPLv3 iSH
 emulator. See [License](#license).
 
+## Running in the background
+
+iOS pauses an app as soon as you switch away, and the whole harness runs inside
+the app, so an agent turn stops too. **⋯ ▸ Keep Running in Background** keeps
+it running. It does this with coarse, continuous location updates, the one
+background mode iOS offers for this:
+
+- It is off by default and asks for *While Using* location access the first
+  time you turn it on.
+- Readings are discarded. Nothing is stored, logged or given to the agent;
+  `location_query` still asks per call as before.
+- iOS shows the location indicator while the app runs in the background.
+- It uses more battery. App Store review does not accept background location
+  used only to stay awake, so this is meant for sideloaded builds.
+
+## Backup: export and import
+
+**⋯ ▸ Export Data…** writes one `DeepSeek-Harness-backup-<date>.tar.gz` and
+lets you save it in Files. It contains `~/.dsh` (sessions, credentials
+including your API key, settings, your patch layers and installed plugins),
+`/root/workspace`, and a `dsh-backup.json` marker. Keep the file private.
+
+**⋯ ▸ Import Data…** replaces both directories with a backup and restarts the
+harness. The archive is checked first: it must contain `dsh-backup.json` and
+`.dsh`, and nothing outside `.dsh` and `workspace`. The data it replaces is
+kept in `/root/.dsh.before-import` and `/root/workspace.before-import` until
+the next import. A backup from an older image works: `dsh-serve` adds DSH's
+bundles to its profiles on start.
+
 ## Contributing
 
 Issues and pull requests are welcome. Please run `make test` before opening a

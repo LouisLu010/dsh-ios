@@ -92,6 +92,8 @@
 		8DAB3CE1D6A198DC89FF6729 /* ScrollbarView.m in Sources */ = {isa = PBXBuildFile; fileRef = 7BB6DAB909A6C53A1470D95F /* ScrollbarView.m */; };
 		920EDF8D4CE5B5F1F7C4AB7E /* LocationDevice.m in Sources */ = {isa = PBXBuildFile; fileRef = ECF7F04E8A5D9C5B869E1DB4 /* LocationDevice.m */; };
 		931E5966A2A1B142F24F7D96 /* About.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 84B89072C439FFF7DEB0B6D0 /* About.storyboard */; };
+		F7745CFC2E250663506E44AB /* DSHBackgroundKeepAlive.m in Sources */ = {isa = PBXBuildFile; fileRef = BE00B5E15377C98A08B55F75 /* DSHBackgroundKeepAlive.m */; };
+		B2A1452B0BCBA84C5860D850 /* DSHDataTransfer.m in Sources */ = {isa = PBXBuildFile; fileRef = 334A05F1BD0271496DC7D2EE /* DSHDataTransfer.m */; };
 		9402EA13C523D10581D026A9 /* DSHActivityCapability.m in Sources */ = {isa = PBXBuildFile; fileRef = BA2F26CF9E84EA765BE72B6E /* DSHActivityCapability.m */; };
 		94C525E45A37027088335E84 /* Theme.m in Sources */ = {isa = PBXBuildFile; fileRef = E0E9610E1C3223CB49D8CBB9 /* Theme.m */; };
 		991A42CE43F0CDD74A58D69D /* metal.png in Resources */ = {isa = PBXBuildFile; fileRef = FC2835A1206ACA50B2947A55 /* metal.png */; };
@@ -326,6 +328,10 @@
 		B7150F1E8A9CF5D47A1093AF /* freeiosterminal.png */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = image.png; path = freeiosterminal.png; sourceTree = "<group>"; };
 		B90210D1BD30ACF2BD6127F8 /* sprite64.png */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = image.png; path = sprite64.png; sourceTree = "<group>"; };
 		B9CFF7DBCCE1D6D971538BDF /* PasteboardDevice.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = PasteboardDevice.m; sourceTree = "<group>"; };
+		BE00B5E15377C98A08B55F75 /* DSHBackgroundKeepAlive.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = DSHBackgroundKeepAlive.m; sourceTree = "<group>"; };
+		599F841CE0F22C10262F3190 /* DSHBackgroundKeepAlive.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = DSHBackgroundKeepAlive.h; sourceTree = "<group>"; };
+		334A05F1BD0271496DC7D2EE /* DSHDataTransfer.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = DSHDataTransfer.m; sourceTree = "<group>"; };
+		1C8B96439FA1565BE49AC38E /* DSHDataTransfer.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = DSHDataTransfer.h; sourceTree = "<group>"; };
 		BA2F26CF9E84EA765BE72B6E /* DSHActivityCapability.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = DSHActivityCapability.m; sourceTree = "<group>"; };
 		BAB3B4A7E54D6758DBC09ABF /* ProgressReportViewController.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = ProgressReportViewController.m; sourceTree = "<group>"; };
 		BDE06940F4B0687B7E78F777 /* DSHCapability.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = DSHCapability.h; sourceTree = "<group>"; };
@@ -736,6 +742,8 @@
 			isa = PBXGroup;
 			children = (
 				BA2F26CF9E84EA765BE72B6E /* DSHActivityCapability.m */,
+				334A05F1BD0271496DC7D2EE /* DSHDataTransfer.m */,
+				BE00B5E15377C98A08B55F75 /* DSHBackgroundKeepAlive.m */,
 				C1DADF81DC64C6861C2ED592 /* DSHActivityLog.m */,
 				5B92EA9471D18A969DFF81EC /* DSHActivityViewController.m */,
 				F2B4807933E270360A16E5CC /* DSHAppDelegate.m */,
@@ -768,6 +776,8 @@
 				704DB3004D38ED3D6DB670ED /* DSHStatusOverlayView.m */,
 				6626CFAAA92253B09E1050BB /* DSHTurnPresence.m */,
 				EEC21A95E24CC8163A19B23A /* DSHActivityCapability.h */,
+				1C8B96439FA1565BE49AC38E /* DSHDataTransfer.h */,
+				599F841CE0F22C10262F3190 /* DSHBackgroundKeepAlive.h */,
 				E6FA07A06B783C39F50A118F /* DSHActivityLog.h */,
 				05C8A325CF55E4964E90FD1F /* DSHActivityViewController.h */,
 				52527F471853A5C5BFBDB6AA /* DSHAppDelegate.h */,
@@ -1229,6 +1239,8 @@
 				D549D1D9BC9A5B0512BAB018 /* FakeFFmpeg.m in Sources */,
 				E8515A057788E39E43F59D07 /* ISHShellExecutor.m in Sources */,
 				9402EA13C523D10581D026A9 /* DSHActivityCapability.m in Sources */,
+				B2A1452B0BCBA84C5860D850 /* DSHDataTransfer.m in Sources */,
+				F7745CFC2E250663506E44AB /* DSHBackgroundKeepAlive.m in Sources */,
 				1BBD649CDC2F0001F8818795 /* DSHActivityLog.m in Sources */,
 				CDAAAED2330531160316C2FA /* DSHActivityViewController.m in Sources */,
 				9BC5A577BE42FBA8811F1848 /* DSHAppDelegate.m in Sources */,

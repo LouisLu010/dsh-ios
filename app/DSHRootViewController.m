@@ -11,12 +11,15 @@
 #import "DSHActivityViewController.h"
 #import "DSHActivityLog.h"
 #import "DSHTurnPresence.h"
+#import "DSHBackgroundKeepAlive.h"
+#import "DSHDataTransfer.h"
 #import "DSHRootUpgrader.h"
 #import "DSHStartupMetrics.h"
 #import "DSHStatusOverlayView.h"
 #import "TerminalViewController.h"
 #import "AppDelegate.h"
 #import <WebKit/WebKit.h>
+#import <CoreLocation/CoreLocation.h>
 
 static NSString *const kDSHUserAgentSuffix = @" DSH-iOS/1.0";
 
@@ -54,6 +57,7 @@ static NSString *const kDSHUserAgentSuffix = @" DSH-iOS/1.0";
     [nc addObserver:self selector:@selector(bootStateChanged:) name:DSHBootStateDidChangeNotification object:nil];
     [self observeActivity];
     [DSHTurnPresence.shared start];
+    [DSHBackgroundKeepAlive.shared start];
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(turnWasInterrupted:)
                                                name:DSHTurnWasInterruptedNotification object:nil];
     [self applyHarnessState];
@@ -194,8 +198,25 @@ static NSString *const kDSHUserAgentSuffix = @" DSH-iOS/1.0";
         if (url) [UIApplication.sharedApplication openURL:url options:@{} completionHandler:nil];
     }];
     UIAction *about = [UIAction actionWithTitle:@"About DeepSeek Harness" image:[UIImage systemImageNamed:@"info.circle"] identifier:@"dsh.about" handler:^(UIAction *a) { [weakSelf presentAbout]; }];
+    // Rebuilt every time the menu opens, so the checkmark follows the setting
+    // and the permission state.
+    UIDeferredMenuElement *keepAlive = [UIDeferredMenuElement elementWithUncachedProvider:^(void (^completion)(NSArray<UIMenuElement *> *)) {
+        DSHBackgroundKeepAlive *k = DSHBackgroundKeepAlive.shared;
+        UIAction *toggle = [UIAction actionWithTitle:@"Keep Running in Background" image:[UIImage systemImageNamed:@"location.circle"] identifier:@"dsh.keepalive" handler:^(UIAction *a) { [weakSelf toggleKeepAlive]; }];
+        toggle.state = k.isEnabled ? UIMenuElementStateOn : UIMenuElementStateOff;
+        if (k.state == DSHKeepAliveStateDenied)
+            toggle.subtitle = @"Location access is off in iOS Settings";
+        else if (k.isActive)
+            toggle.subtitle = @"On · uses location to stay awake";
+        completion(@[toggle]);
+    }];
+    UIAction *exportData = [UIAction actionWithTitle:@"Export Data…" image:[UIImage systemImageNamed:@"square.and.arrow.up"] identifier:@"dsh.export" handler:^(UIAction *a) { [DSHDataTransfer exportFromViewController:weakSelf]; }];
+    UIAction *importData = [UIAction actionWithTitle:@"Import Data…" image:[UIImage systemImageNamed:@"square.and.arrow.down"] identifier:@"dsh.import" handler:^(UIAction *a) { [DSHDataTransfer importFromViewController:weakSelf]; }];
     NSMutableArray<UIMenuElement *> *children = [NSMutableArray arrayWithObjects:reload, terminal, nil];
-    [children addObjectsFromArray:@[capabilities, activity, log, [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[safari, restart, repair]], about]];
+    [children addObjectsFromArray:@[capabilities, activity, log,
+        [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[keepAlive]],
+        [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[exportData, importData]],
+        [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[safari, restart, repair]], about]];
     return [UIMenu menuWithChildren:children];
 }
 
@@ -316,6 +337,34 @@ static NSString *const kDSHUserAgentSuffix = @" DSH-iOS/1.0";
         [self loadHarness];
     else
         [DSHHarness.shared start];
+}
+
+- (void)toggleKeepAlive {
+    DSHBackgroundKeepAlive *k = DSHBackgroundKeepAlive.shared;
+    if (k.isEnabled) {
+        k.enabled = NO;
+        return;
+    }
+    if (k.state == DSHKeepAliveStateDenied ||
+        [CLLocationManager new].authorizationStatus == kCLAuthorizationStatusDenied) {
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Location access is off"
+            message:@"Keeping DeepSeek Harness running in the background needs location access. Allow it in Settings ▸ DeepSeek Harness ▸ Location (While Using is enough)."
+            preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+        [alert addAction:[UIAlertAction actionWithTitle:@"Open Settings" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+            k.enabled = YES;
+            [UIApplication.sharedApplication openURL:[NSURL URLWithString:UIApplicationOpenSettingsURLString] options:@{} completionHandler:nil];
+        }]];
+        [self presentViewController:alert animated:YES completion:nil];
+        return;
+    }
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Keep running in the background?"
+        message:@"iOS normally pauses DeepSeek Harness as soon as you switch apps, which stops agent turns. With this on, the app uses coarse location updates to keep running. "
+                @"No location is stored or given to the agent, iOS shows the location indicator while it runs, and it uses more battery."
+        preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Turn On" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { k.enabled = YES; }]];
+    [self presentViewController:alert animated:YES completion:nil];
 }
 
 - (void)confirmRestart {
