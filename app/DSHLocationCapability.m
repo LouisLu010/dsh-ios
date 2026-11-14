@@ -102,7 +102,7 @@ static DSHLocationFix *sPrompt;
     DSHCapability *capability =
         [[DSHCapability alloc] initWithIdentifier:DSHCapabilityLocationRead
                                             title:@"Location"
-                                          details:@"One fix at a time, when the agent asks. DSH never tracks you in the background."
+                                          details:@"One fix at a time, when the agent asks. The agent never gets a history or a background feed of your location."
                                              gate:DSHCapabilityGateSystemPermission
                                  enabledByDefault:YES
                                         // Core Location is present on every supported iOS
@@ -131,7 +131,7 @@ static DSHLocationFix *sPrompt;
         }
         if (status == kCLAuthorizationStatusDenied || status == kCLAuthorizationStatusRestricted)
             return [DSHHostBridgeResponse errorWithStatus:403 code:@"permission_denied"
-                                                  message:@"Location access is denied for DSH in iOS Settings ▸ Privacy ▸ Location Services."
+                                                  message:@"Location access is denied for DeepSeek Harness in iOS Settings ▸ Privacy ▸ Location Services."
                                               recoverable:YES];
 
         CLLocation *location = [fix waitForFix];

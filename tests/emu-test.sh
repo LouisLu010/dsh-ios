@@ -72,6 +72,29 @@ out="$(guest 'cd /tmp && gcc -o wait wait.c && ./wait')"
 echo "$out" | sed 's/^/     /'
 check "waitpid survives a >1s child" grep -q 'WAIT OK' <<<"$out"
 
+echo "== truncate() by path"
+# truncate(2) used to hand the path resolver a NULL directory and abort the
+# emulator (npm 11 under Node 24 calls it while installing).
+"$ISH_BUILD/ish" -f "$WORK/fakefs" /bin/sh -c 'cat > /tmp/trunc.c' <<'EOF'
+#include <stdio.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+int main(void) {
+    struct stat st;
+    int fd = open("/tmp/trunc-abs", O_CREAT | O_WRONLY | O_TRUNC, 0644);
+    if (fd < 0 || write(fd, "hello world", 11) != 11) return 1;
+    close(fd);
+    if (truncate("/tmp/trunc-abs", 5) || stat("/tmp/trunc-abs", &st) || st.st_size != 5) return 2;
+    if (chdir("/tmp") || truncate("trunc-abs", 2) || stat("/tmp/trunc-abs", &st) || st.st_size != 2) return 3;
+    puts("TRUNCATE OK");
+    return 0;
+}
+EOF
+out="$(guest 'cd /tmp && gcc -o trunc trunc.c && ./trunc')"
+echo "$out" | sed 's/^/     /'
+check "truncate() works on absolute and relative paths" grep -q 'TRUNCATE OK' <<<"$out"
+
 echo "== uname with a long host name"
 # The guest's nodename field holds 64 bytes; macOS host names can be longer
 # (GitHub's macOS runners use long FQDNs), which used to abort the emulator

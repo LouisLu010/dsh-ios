@@ -225,7 +225,7 @@ NSString *DSHDisplayValue(NSString *value, NSUInteger limit) {
         case DSHConfirmationUnavailable:
             return [DSHHostBridgeResponse errorWithStatus:409 code:@"unavailable"
                                                   message:[NSString stringWithFormat:
-                                                           @"DSH could not ask the user about: %@ — the app is in the background, or another confirmation is already open. Try once the user is back in DSH.", action]
+                                                           @"DeepSeek Harness could not ask the user about: %@ — the app is in the background, or another confirmation is already open. Try once the user is back in DeepSeek Harness.", action]
                                               recoverable:YES];
     }
 }

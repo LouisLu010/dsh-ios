@@ -79,7 +79,7 @@ static const int64_t kQueryTimeoutSeconds = 5;
     }
     if (status == HKAuthorizationRequestStatusUnknown)
         return [DSHHostBridgeResponse errorWithStatus:403 code:@"permission_denied"
-                                              message:@"HealthKit would not report its authorization state; the user may need to open Settings ▸ Privacy ▸ Health ▸ DSH."
+                                              message:@"HealthKit would not report its authorization state; the user may need to open Settings ▸ Privacy ▸ Health ▸ DeepSeek Harness."
                                           recoverable:YES];
     return nil;  // asked already: query, and let an empty result speak for itself
 }
@@ -98,7 +98,7 @@ static const int64_t kQueryTimeoutSeconds = 5;
 /// data" from "read access declined", and the model has to know that.
 + (NSString *)emptyNote {
     return @"No samples in this window. iOS does not let an app see whether read access was declined, "
-           @"so this may also mean the user did not share this category — ask them to check Settings ▸ Privacy ▸ Health ▸ DSH.";
+           @"so this may also mean the user did not share this category — ask them to check Settings ▸ Privacy ▸ Health ▸ DeepSeek Harness.";
 }
 
 #pragma mark Windows and formatting

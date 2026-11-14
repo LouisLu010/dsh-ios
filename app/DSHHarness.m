@@ -4,6 +4,7 @@
 //
 
 #import "DSHHarness.h"
+#import "DSHTurnPresence.h"
 #import "DSHPortAllocator.h"
 #import "DSHReadinessProbe.h"
 #import "DSHGuestLauncher.h"
@@ -28,6 +29,7 @@ NSString *DSHHarnessStateName(DSHHarnessState state) {
 }
 
 @interface DSHHarness ()
+@property (nonatomic, nullable) NSURL *authenticatedURL;
 @property (nonatomic) id<DSHGuestProcessLauncher> launcher;
 @property (nonatomic, readwrite) DSHHarnessState state;
 @property (nonatomic, readwrite) uint16_t port;
@@ -65,6 +67,7 @@ NSString *DSHHarnessStateName(DSHHarnessState state) {
         _extraEnvironment = @{};
         _preferredPort = 3080;
         _startupTimeout = 240;
+        _launchURLWait = 15;
         _maxConsecutiveCrashes = 4;
         _state = DSHHarnessStateIdle;
         _healthCheckCompletions = [NSMutableArray array];
@@ -86,6 +89,26 @@ NSString *DSHHarnessStateName(DSHHarnessState state) {
     if (self.port == 0)
         return nil;
     return [NSURL URLWithString:[NSString stringWithFormat:@"http://127.0.0.1:%u/", self.port]];
+}
+
+- (NSURL *)launchURL {
+    return self.authenticatedURL ?: self.baseURL;
+}
+
+/// Picks the tokened UI URL out of a `dsh web: <url>` line for this launch's
+/// port. Called with the raw line, before the log redacts the token.
+- (void)noteServerLine:(NSString *)line {
+    NSRange marker = [line rangeOfString:@"dsh web: http"];
+    if (marker.location == NSNotFound || ![line containsString:@"token="])
+        return;
+    NSString *text = [[line substringFromIndex:marker.location + @"dsh web: ".length]
+                      stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+    NSURLComponents *components = [NSURLComponents componentsWithString:text];
+    // Only ever trust a loopback URL on the port this launch chose; the line
+    // comes from the guest's stdout.
+    if (components == nil || ![components.host isEqualToString:@"127.0.0.1"] || components.port.unsignedIntValue != self.port)
+        return;
+    self.authenticatedURL = components.URL;
 }
 
 - (void)setState:(DSHHarnessState)state {
@@ -157,6 +180,7 @@ NSString *DSHHarnessStateName(DSHHarnessState state) {
         return;
     }
     self.port = port;
+    self.authenticatedURL = nil;   // a new process prints a new token
     self.lastError = nil;
     self.lastLaunchAt = NSDate.date;
     self.state = DSHHarnessStateStarting;
@@ -170,6 +194,11 @@ NSString *DSHHarnessStateName(DSHHarnessState state) {
                                     arguments:@[]
                                   environment:env
                                          line:^(NSString *line, BOOL isStdErr) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            typeof(self) self = weakSelf;
+            if (self != nil && generation == self.launchGeneration)
+                [self noteServerLine:line];
+        });
         [weakSelf.log append:line];
     } exit:^(int exitCode) {
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -194,16 +223,7 @@ NSString *DSHHarnessStateName(DSHHarnessState state) {
         if (self == nil || generation != self.launchGeneration)
             return;
         if (ready) {
-            self.lastStartupDuration = elapsed;
-            // Smooth the estimate for next time (EMA, weight on the new sample).
-            double prev = [NSUserDefaults.standardUserDefaults doubleForKey:kExpectedStartupKey];
-            double next = prev > 1 ? prev * 0.5 + elapsed * 0.5 : elapsed;
-            [NSUserDefaults.standardUserDefaults setDouble:next forKey:kExpectedStartupKey];
-            self.consecutiveCrashes = 0;
-            [self clearPersistentFailures];
-            [self.log append:[NSString stringWithFormat:@"[dsh-ios] server answered after %.1fs", elapsed]];
-            [DSHStartupMetrics.shared mark:@"harness_ready"];
-            self.state = DSHHarnessStateReady;
+            [self awaitLaunchURLForGeneration:generation elapsed:elapsed];
         } else if (self.state == DSHHarnessStateStarting) {
             self.lastError = [NSString stringWithFormat:@"The harness did not answer within %.0f seconds.", self.startupTimeout];
             [self.log append:[@"[dsh-ios] " stringByAppendingString:self.lastError]];
@@ -214,6 +234,43 @@ NSString *DSHHarnessStateName(DSHHarnessState state) {
             [self scheduleRelaunchAfterFailure];
         }
     }];
+}
+
+/// The listener answers (with 401) a moment before dsh prints the tokened
+/// URL, and loading the UI without the token only shows dsh's "authentication
+/// required" page. Wait briefly for the line; a server that never prints one
+/// (an older dsh) is used with the bare URL.
+- (void)awaitLaunchURLForGeneration:(NSUInteger)generation elapsed:(NSTimeInterval)elapsed {
+    [self awaitLaunchURLForGeneration:generation elapsed:elapsed since:NSDate.date];
+}
+
+- (void)awaitLaunchURLForGeneration:(NSUInteger)generation elapsed:(NSTimeInterval)elapsed since:(NSDate *)since {
+    if (generation != self.launchGeneration || self.state != DSHHarnessStateStarting)
+        return;
+    NSTimeInterval waited = -since.timeIntervalSinceNow;
+    if (self.authenticatedURL == nil && waited < self.launchURLWait) {
+        __weak typeof(self) weakSelf = self;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t) (0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [weakSelf awaitLaunchURLForGeneration:generation elapsed:elapsed since:since];
+        });
+        return;
+    }
+    if (self.authenticatedURL == nil)
+        [self.log append:@"[dsh-ios] server printed no tokened URL; using the bare URL"];
+    [self becomeReadyAfter:elapsed + waited];
+}
+
+- (void)becomeReadyAfter:(NSTimeInterval)elapsed {
+    self.lastStartupDuration = elapsed;
+    // Smooth the estimate for next time (EMA, weight on the new sample).
+    double prev = [NSUserDefaults.standardUserDefaults doubleForKey:kExpectedStartupKey];
+    double next = prev > 1 ? prev * 0.5 + elapsed * 0.5 : elapsed;
+    [NSUserDefaults.standardUserDefaults setDouble:next forKey:kExpectedStartupKey];
+    self.consecutiveCrashes = 0;
+    [self clearPersistentFailures];
+    [self.log append:[NSString stringWithFormat:@"[dsh-ios] server answered after %.1fs", elapsed]];
+    [DSHStartupMetrics.shared mark:@"harness_ready"];
+    self.state = DSHHarnessStateReady;
 }
 
 - (void)processExitedWithCode:(int)exitCode generation:(NSUInteger)generation {
@@ -296,19 +353,41 @@ NSString *DSHHarnessStateName(DSHHarnessState state) {
     if (self.healthCheckInFlight)
         return;
     self.healthCheckInFlight = YES;
-    NSUInteger generation = self.launchGeneration;
+    [self healthCheckAttempt:1 generation:self.launchGeneration since:NSDate.date];
+}
+
+/// One slow answer is not a dead server. dsh runs JavaScript on one thread
+/// under an emulator, and in the middle of an agent turn (which keeps going in
+/// the background with Keep Running in Background on) it can take far longer
+/// than a few seconds to get to a request. Restarting it then kills the turn
+/// the user came back to look at. So keep asking for a while, longer while
+/// the agent is working, and restart only a server that stays silent the
+/// whole time. A server whose process has exited is handled by
+/// processExitedWithCode:, not here.
+- (void)healthCheckAttempt:(NSUInteger)attempt generation:(NSUInteger)generation since:(NSDate *)since {
     NSURL *url = self.baseURL;
     __weak typeof(self) weakSelf = self;
-    [DSHReadinessProbe checkURL:url timeout:5 completion:^(BOOL alive) {
+    [DSHReadinessProbe checkURL:url timeout:10 completion:^(BOOL alive) {
         typeof(self) self = weakSelf;
         if (self == nil)
             return;
+        BOOL stillCurrent = generation == self.launchGeneration && self.state == DSHHarnessStateReady;
+        NSTimeInterval window = DSHTurnPresence.shared.isWorking ? 180 : 60;
+        if (!alive && stillCurrent && -since.timeIntervalSinceNow < window) {
+            if (attempt == 1)
+                [self.log append:@"[dsh-ios] health check: no answer yet; the server may be busy, retrying"];
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t) (3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                [weakSelf healthCheckAttempt:attempt + 1 generation:generation since:since];
+            });
+            return;
+        }
         self.healthCheckInFlight = NO;
         NSArray<void (^)(BOOL)> *completions = [self.healthCheckCompletions copy];
         [self.healthCheckCompletions removeAllObjects];
-        BOOL stillCurrent = generation == self.launchGeneration && self.state == DSHHarnessStateReady;
+        if (alive && attempt > 1)
+            [self.log append:[NSString stringWithFormat:@"[dsh-ios] health check: server answered after %.0fs", -since.timeIntervalSinceNow]];
         if (!alive && stillCurrent) {
-            [self.log append:@"[dsh-ios] health check failed; restarting server"];
+            [self.log append:[NSString stringWithFormat:@"[dsh-ios] health check failed for %.0fs; restarting server", -since.timeIntervalSinceNow]];
             [self restart];
         }
         for (void (^callback)(BOOL) in completions)

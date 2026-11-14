@@ -6,6 +6,7 @@
 #import "DSHTurnPresence.h"
 #import "DSHActivityLog.h"
 #import "DSHHarness.h"
+#import "DSHBackgroundKeepAlive.h"
 #import <UIKit/UIKit.h>
 
 NSNotificationName const DSHTurnWasInterruptedNotification = @"DSHTurnWasInterrupted";
@@ -70,6 +71,9 @@ static const NSTimeInterval kWorkingWindow = 20;
 
 - (void)willResignActive {
     if (!self.isWorking) return;
+    // With keep-alive on the turn carries on in the background, so there is
+    // nothing to report when the user comes back.
+    if (DSHBackgroundKeepAlive.shared.isActive) return;
     _leftMidTurn = YES;
     _interruptedAt = NSDate.date;
     [NSUserDefaults.standardUserDefaults setObject:_interruptedAt forKey:kInterruptedAtKey];

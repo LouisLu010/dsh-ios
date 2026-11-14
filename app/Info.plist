@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>DSHIOS</string>
+	<string>DeepSeek Harness</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -31,26 +31,30 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 	<key>NSCalendarsFullAccessUsageDescription</key>
-	<string>DSH lets the agent read your calendar when you turn the Calendar capability on.</string>
+	<string>DeepSeek Harness lets the agent read your calendar when you turn the Calendar capability on.</string>
 	<key>NSCalendarsUsageDescription</key>
-	<string>DSH lets the agent read your calendar when you turn the Calendar capability on.</string>
+	<string>DeepSeek Harness lets the agent read your calendar when you turn the Calendar capability on.</string>
 	<key>NSContactsUsageDescription</key>
-	<string>DSH looks up contacts by name when you ask the agent about someone, and only after you switch Contacts on in DSH ▸ Capabilities.</string>
+	<string>DeepSeek Harness looks up contacts by name when you ask the agent about someone, and only after you switch Contacts on in DeepSeek Harness ▸ Capabilities.</string>
 	<key>NSHealthShareUsageDescription</key>
-	<string>DSH can read your Health data — steps, heart rate, sleep and workouts — only after you switch Apple Health on in DSH ▸ Capabilities, and only to answer what you ask the agent.</string>
+	<string>DeepSeek Harness can read your Health data — steps, heart rate, sleep and workouts — only after you switch Apple Health on in DeepSeek Harness ▸ Capabilities, and only to answer what you ask the agent.</string>
 	<key>NSHealthUpdateUsageDescription</key>
-	<string>DSH never writes to Apple Health. It only reads, and only after you switch Apple Health on in DSH ▸ Capabilities. This description is required because the app links HealthKit.</string>
+	<string>DeepSeek Harness never writes to Apple Health. It only reads, and only after you switch Apple Health on in DeepSeek Harness ▸ Capabilities. This description is required because the app links HealthKit.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>DSH runs a local web server inside the app and connects to it over loopback.</string>
+	<string>DeepSeek Harness runs a local web server inside the app and connects to it over loopback.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>DSH uses your location only while you are using the app, when the agent needs it for something you asked and after you switch Location on in DSH ▸ Capabilities. DSH does not track your location in the background.</string>
+	<string>DeepSeek Harness gives your location to the agent only when it needs it for something you asked, and only after you switch Location on in Capabilities. If you turn on Keep Running in Background, it also uses coarse location updates to keep the app running; those readings are discarded.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>DSH asks for your location only when the agent needs it for something you asked, and only after you switch Location on in DSH ▸ Capabilities. It never tracks you in the background.</string>
+	<string>DeepSeek Harness gives your location to the agent only when it needs it for something you asked, and only after you switch Location on in Capabilities. If you turn on Keep Running in Background, it also uses coarse location updates to keep the app running; those readings are discarded.</string>
 	<key>NSRemindersFullAccessUsageDescription</key>
-	<string>DSH lets the agent read your reminders when you turn the Reminders capability on.</string>
+	<string>DeepSeek Harness lets the agent read your reminders when you turn the Reminders capability on.</string>
 	<key>NSRemindersUsageDescription</key>
-	<string>DSH lets the agent read your reminders when you turn the Reminders capability on.</string>
+	<string>DeepSeek Harness lets the agent read your reminders when you turn the Reminders capability on.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

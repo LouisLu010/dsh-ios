@@ -32,7 +32,7 @@
         self.accessibilityIdentifier = @"dsh.overlay";
 
         UILabel *title = [UILabel new];
-        title.text = @"DSH";
+        title.text = @"DeepSeek Harness";
         title.font = [UIFont monospacedSystemFontOfSize:40 weight:UIFontWeightBold];
         title.textColor = UIColor.labelColor;
         title.textAlignment = NSTextAlignmentCenter;

@@ -68,8 +68,8 @@ check "root.tar.gz imports via fakefsify" test -f "$WORK/fakefs/meta.db"
 echo "== guest sanity"
 guest 'node -v; dsh --version; dsh-selftest' > "$WORK/sanity.txt"
 sed 's/^/     /' "$WORK/sanity.txt"
-check "node >= 22.19 in guest" grep -Eq '^v(22\.(19|[2-9][0-9])|2[3-9]|[3-9][0-9])' "$WORK/sanity.txt"
-check "dsh 0.1.x in guest"      grep -Eq '^0\.1\.' "$WORK/sanity.txt"
+check "node >= 24.9 in guest"  grep -Eq '^v(24\.(9|[1-9][0-9])|2[5-9]|[3-9][0-9])\.' "$WORK/sanity.txt"
+check "dsh 0.2.x in guest"      grep -Eq '^0\.2\.' "$WORK/sanity.txt"
 check "dsh-selftest passes"     grep -q 'SELFTEST OK' "$WORK/sanity.txt"
 check "sharp keeps musl arm64 runtime" test -d "$WORK/fakefs/data/usr/local/lib/node_modules/@img/sharp-linuxmusl-arm64"
 check "sharp drops unusable glibc runtime" test ! -e "$WORK/fakefs/data/usr/local/lib/node_modules/@img/sharp-linux-arm64"
@@ -84,7 +84,7 @@ echo "== profile composition"
 guest 'export HOME=/root; node --expose-internals /usr/local/lib/node_modules/@deepseek-ai/dsh/lib/bin.js --profile web --dump-config' > "$WORK/config.yml"
 grep -A4 '^- id: sandbox-policy' "$WORK/config.yml" > "$WORK/sandbox-row.yml"
 check "sandbox-policy patched to danger-full-access" grep -q 'danger-full-access' "$WORK/sandbox-row.yml"
-check "hmr row present (needs --expose-internals)"    grep -q 'cordis-plugin-hmr' "$WORK/config.yml"
+check "hmr row present"                              grep -q '^- id: hmr' "$WORK/config.yml"
 check "sandbox policy comes from the @dsh-ios/web bundle" grep -q '^# == .*@dsh-ios/web' "$WORK/config.yml"
 check "host bridge comes from the @dsh-ios/bridge bundle" grep -q '^# == @dsh-ios/bridge' "$WORK/config.yml"
 
@@ -236,18 +236,24 @@ echo "== boot dsh-serve on 127.0.0.1:$PORT (timeout ${BOOT_TIMEOUT}s)"
 start=$(date +%s)
 ( "$ISH_BUILD/ish" -f "$WORK/fakefs" /bin/sh -c "DSH_PORT=$PORT dsh-serve" 2>&1 | filter > "$WORK/dsh-serve.log" ) &
 up=0
+# dsh 0.2 answers the bare URL with 401 and prints a per-launch
+# `dsh web: <url>?token=…`; the token buys a session cookie (what the app does).
 for _ in $(seq 1 "$BOOT_TIMEOUT"); do
     sleep 1
-    if curl -fs -o "$WORK/index.html" "http://127.0.0.1:$PORT/"; then up=1; break; fi
+    url=$(grep -o "http://127.0.0.1:$PORT/?token=[A-Za-z0-9_-]*" "$WORK/dsh-serve.log" | head -1)
+    [ -n "$url" ] || continue
+    if curl -fsL -c "$WORK/cookies" -b "$WORK/cookies" -o "$WORK/index.html" "$url"; then up=1; break; fi
 done
 elapsed=$(( $(date +%s) - start ))
 check "web UI reachable from host loopback (${elapsed}s)" test "$up" = 1
 check "index carries __DSH_BOOT__ manifest" grep -q '__DSH_BOOT__' "$WORK/index.html"
+code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/")
+check "bare URL without the token is refused ($code)" test "$code" = 401
 plugin_url=$(grep -o '/plugins/[^"]*client.js?rev=[0-9a-f]*' "$WORK/index.html" | head -1)
 code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT$plugin_url")
 check "client plugin bundle served ($plugin_url -> $code)" test "$code" = 200
 sleep 5
-check "server still alive after 5s" curl -fs -o /dev/null "http://127.0.0.1:$PORT/"
+check "server still alive after 5s" curl -fs -b "$WORK/cookies" -o /dev/null "http://127.0.0.1:$PORT/"
 grep -Eq 'fatal|Error:' "$WORK/dsh-serve.log"; noerr=$?
 check "no fatal error in dsh-serve log" test "$noerr" != 0
 grep -q 'dsh-ios-heal-home failed' "$WORK/dsh-serve.log"; healfail=$?

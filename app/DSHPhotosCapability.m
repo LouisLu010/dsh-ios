@@ -103,7 +103,7 @@ static const NSTimeInterval kPickerTimeout = 180;
     [DSHCapabilityRegistry.shared registerCapability:
         [[DSHCapability alloc] initWithIdentifier:DSHCapabilityPhotosImport
                                             title:@"Photos (import)"
-                                          details:@"Lets the agent ask for a photo. You pick it; DSH never sees the library."
+                                          details:@"Lets the agent ask for a photo. You pick it; DeepSeek Harness never sees the library."
                                              gate:DSHCapabilityGateEnabledOnly
                                  enabledByDefault:YES
                                         available:YES]];
@@ -129,7 +129,7 @@ static const NSTimeInterval kPickerTimeout = 180;
         });
         if (!presented)
             return [DSHHostBridgeResponse errorWithStatus:409 code:@"unavailable"
-                                                  message:@"DSH is not in the foreground, so it cannot show the photo picker. Ask the user to open DSH and try again."
+                                                  message:@"DeepSeek Harness is not in the foreground, so it cannot show the photo picker. Ask the user to open DeepSeek Harness and try again."
                                               recoverable:YES];
 
         dispatch_semaphore_wait(picker.done, dispatch_time(DISPATCH_TIME_NOW, (int64_t) (kPickerTimeout * NSEC_PER_SEC)));

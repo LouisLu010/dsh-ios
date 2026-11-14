@@ -33,7 +33,7 @@ NSString *const DSHCapabilityShortcutsRun = @"shortcuts.run";
     [DSHCapabilityRegistry.shared registerCapability:
         [[DSHCapability alloc] initWithIdentifier:DSHCapabilityShortcutsRun
                                             title:@"Shortcuts"
-                                          details:@"Runs one of your shortcuts by name. A shortcut can do anything you built it to do, and running one leaves DSH."
+                                          details:@"Runs one of your shortcuts by name. A shortcut can do anything you built it to do, and running one leaves DeepSeek Harness."
                                              gate:DSHCapabilityGatePerCall
                                  enabledByDefault:YES
                                         available:YES]];
@@ -59,8 +59,8 @@ NSString *const DSHCapabilityShortcutsRun = @"shortcuts.run";
 
         NSString *shownName = DSHDisplayValue(name, 80);
         NSString *detail = input.length
-            ? [NSString stringWithFormat:@"DSH wants to run your shortcut “%@” with this input:\n\n“%@”\n\nDSH will close while it runs.", shownName, DSHDisplayValue(input, 200)]
-            : [NSString stringWithFormat:@"DSH wants to run your shortcut “%@”. DSH will close while it runs.", shownName];
+            ? [NSString stringWithFormat:@"DeepSeek Harness wants to run your shortcut “%@” with this input:\n\n“%@”\n\nDSH will close while it runs.", shownName, DSHDisplayValue(input, 200)]
+            : [NSString stringWithFormat:@"DeepSeek Harness wants to run your shortcut “%@”. DeepSeek Harness will close while it runs.", shownName];
         DSHConfirmationOutcome outcome = [DSHCallConfirmation confirmTitle:@"Run a shortcut?" detail:detail
                                                                 capability:DSHCapabilityShortcutsRun];
         DSHHostBridgeResponse *refusal = [DSHCallConfirmation refusalFor:outcome
@@ -88,8 +88,8 @@ NSString *const DSHCapabilityShortcutsRun = @"shortcuts.run";
         return [DSHHostBridgeResponse ok:@{
             @"started": @YES,
             @"name": name,
-            @"note": @"Shortcuts has been opened and is running this in the foreground. DSH is now in the background, "
-                     @"so this turn stops here and its result is not visible to DSH. Tell the user what you asked for "
+            @"note": @"Shortcuts has been opened and is running this in the foreground. DeepSeek Harness is now in the background, "
+                     @"so this turn stops here and its result is not visible to DeepSeek Harness. Tell the user what you asked for "
                      @"and ask them to come back and say what happened.",
         }];
     }];

@@ -40,7 +40,7 @@
     XCTAssertGreaterThan(h.guestPid, 0);
 
     XCTestExpectation *fetched = [self expectationWithDescription:@"index"];
-    [[NSURLSession.sharedSession dataTaskWithURL:h.baseURL completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+    [[NSURLSession.sharedSession dataTaskWithURL:h.launchURL completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
         XCTAssertNil(error);
         XCTAssertEqual(((NSHTTPURLResponse *) response).statusCode, 200);
         NSString *html = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
@@ -240,8 +240,8 @@
         if (![line containsString:@"expose_wasm"]) [out appendFormat:@"%@\n", line];
     } completion:^(ISHShellExecutionResult *result) {
         XCTAssertEqual(result.exitCode, 0);
-        XCTAssertTrue([out containsString:@"v22."], @"node 22 expected: %@", out);
-        XCTAssertTrue([out containsString:@"0.1."], @"dsh 0.1.x expected: %@", out);
+        XCTAssertTrue([out containsString:@"v24."], @"node 24 expected: %@", out);
+        XCTAssertTrue([out containsString:@"0.2."], @"dsh 0.2.x expected: %@", out);
         [done fulfill];
     }];
     [self waitForExpectations:@[done] timeout:120];

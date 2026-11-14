@@ -20,7 +20,7 @@
 
 <p align="center">
   <img alt="Platform" src="https://img.shields.io/badge/iOS%20%7C%20iPadOS-16%2B-blue">
-  <img alt="Guest" src="https://img.shields.io/badge/guest-Alpine%203.21%20%C2%B7%20Node%2022%20%C2%B7%20dsh%200.1-1f6feb">
+  <img alt="Guest" src="https://img.shields.io/badge/guest-Alpine%203.23%20%C2%B7%20Node%2024%20%C2%B7%20dsh%200.2-1f6feb">
   <img alt="Tests" src="https://img.shields.io/badge/tests-emu%20%C2%B7%20rootfs%20%C2%B7%20XCTest%20%C2%B7%20XCUITest-success">
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-GPL--3.0-green"></a>
 </p>
@@ -31,7 +31,7 @@
 > If you would like to try it, please download the source and build it yourself.
 
 DSHIOS is a native iOS app that embeds the [iSH-ARM64](ish-arm64) userspace Linux
-emulator, boots a bundled Alpine Linux image with Node.js 22 and
+emulator, boots a bundled Alpine Linux image with Node.js 24 and
 `@deepseek-ai/dsh`, supervises `dsh web`, and shows the harness's own web UI in
 a `WKWebView`. The agent loop, sessions, tools and the shell all run on the
 device. Model requests use the standard DeepSeek API configured in the harness.
@@ -59,7 +59,7 @@ stock dsh web UI.</sub>
 
 ## Features
 
-- **Standard DeepSeek API** — Alpine 3.21, Node 22 and dsh run inside the app;
+- **Standard DeepSeek API** — Alpine 3.23, Node 24 and dsh run inside the app;
   model inference uses DeepSeek's API and the harness manages its API key.
 - **The real harness UI** — dsh's own web app served on loopback: sessions,
   workspaces, tools, permission presets, settings.
@@ -95,7 +95,7 @@ without it.)
 ```bash
 git clone https://github.com/everettjf/dsh-ios.git && cd dsh-ios
 make emulator        # iSH-ARM64 CLI + fakefsify (used to build and test the guest image)
-make rootfs          # build/root.tar.gz — Alpine + Node 22 + dsh (~81 MB, ~6 min, needs network)
+make rootfs          # build/root.tar.gz — Alpine + Node 24 + dsh (~81 MB, ~6 min, needs network)
 open DSH.xcodeproj   # DSH scheme → your iPad → set the team → Run
 ```
 
@@ -117,7 +117,7 @@ prompted; it is stored with the harness settings in the guest.
 │         │                                        ▲                │
 │  DSHHarness  (port pick · readiness probe · restart · health)     │
 │         │  ISHShellExecutor                      │ loopback       │
-│  ┌──────▼──── iSH-ARM64 emulator (Alpine 3.21 aarch64) ───────┐   │
+│  ┌──────▼──── iSH-ARM64 emulator (Alpine 3.23 aarch64) ───────┐   │
 │  │  /usr/local/bin/dsh-serve                                  │   │
 │  │    → node --expose-internals @deepseek-ai/dsh web          │   │
 │  │        --host 127.0.0.1 --port N  ─────────────────────────┘   │
@@ -169,7 +169,7 @@ make test-device        # + UI tests on the iPad (enable Settings ▸ Developer 
 | Suite | Covers | Runs on |
 |---|---|---|
 | `tests/emu-test.sh` | the new NEON gadgets and the FMOV fix (C test compiled with gcc *inside* the guest), the `waitpid` regression, the fetch polyfill (host node, 11 checks) | macOS |
-| `tests/rootfs-test.sh` | imports `root.tar.gz` like the app does, guest self test (node-pty/koffi/ripgrep/sharp), profile patch, **headless LLM round trip through a mock DeepSeek SSE server**, every bridge tool driven through a real agent turn against a stub bridge, `dsh-serve` reachable over loopback | macOS |
+| `tests/rootfs-test.sh` | imports `root.tar.gz` like the app does, guest self test (node-pty/ripgrep/sharp), profile patch, **headless LLM round trip through a mock DeepSeek SSE server**, every bridge tool driven through a real agent turn against a stub bridge, `dsh-serve` reachable over loopback | macOS |
 | `DSHTests` (XCTest, hosted in the app) | port allocator, log ring, readiness probe, harness state machine (fake launcher + local HTTP server); host bridge auth/gating/limits; the confirmation gate (background → refuse, no stacking, always answers); every capability route (refused when switched off, refused before the framework is touched, validated before the user is asked, empty Health answers always explain themselves); guest integration: real server answers, `dsh-selftest`, node/dsh versions, root-image bookkeeping, **whole agent turns calling `device_info` and `health_query` through the bridge against an in-app mock model** | simulator / device |
 | `DSHUITests` (XCUITest) | app boots to the DeepSeek Harness UI, port in the bar, server-log sheet, terminal sheet, landscape layout, the Capabilities screen's switches | simulator / device |
 
@@ -331,6 +331,35 @@ Limits compared with desktop:
 
 **Why GPL?** Because the app compiles and statically links the GPLv3 iSH
 emulator. See [License](#license).
+
+## Running in the background
+
+iOS pauses an app as soon as you switch away, and the whole harness runs inside
+the app, so an agent turn stops too. **⋯ ▸ Keep Running in Background** keeps
+it running. It does this with coarse, continuous location updates, the one
+background mode iOS offers for this:
+
+- It is off by default and asks for *While Using* location access the first
+  time you turn it on.
+- Readings are discarded. Nothing is stored, logged or given to the agent;
+  `location_query` still asks per call as before.
+- iOS shows the location indicator while the app runs in the background.
+- It uses more battery. App Store review does not accept background location
+  used only to stay awake, so this is meant for sideloaded builds.
+
+## Backup: export and import
+
+**⋯ ▸ Export Data…** writes one `DeepSeek-Harness-backup-<date>.tar.gz` and
+lets you save it in Files. It contains `~/.dsh` (sessions, credentials
+including your API key, settings, your patch layers and installed plugins),
+`/root/workspace`, and a `dsh-backup.json` marker. Keep the file private.
+
+**⋯ ▸ Import Data…** replaces both directories with a backup and restarts the
+harness. The archive is checked first: it must contain `dsh-backup.json` and
+`.dsh`, and nothing outside `.dsh` and `workspace`. The data it replaces is
+kept in `/root/.dsh.before-import` and `/root/workspace.before-import` until
+the next import. A backup from an older image works: `dsh-serve` adds DSH's
+bundles to its profiles on start.
 
 ## Contributing
 

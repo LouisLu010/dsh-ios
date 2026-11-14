@@ -83,11 +83,11 @@
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     if (section == 0)
-        return @"Anything switched on here can be read by the agent running in DSH — including by a model answering over the network. "
+        return @"Anything switched on here can be read by the agent running in DeepSeek Harness — including by a model answering over the network. "
                 "Switches take effect immediately, including in the middle of a turn. Items that say “Also needs iOS permission” ask iOS as soon "
                 "as you switch them on; that grant can be revoked later in Settings ▸ Privacy.";
     if (section == 1)
-        return @"These change something outside DSH, so switching one on is not the last word: you are asked to confirm each individual action, "
+        return @"These change something outside DeepSeek Harness, so switching one on is not the last word: you are asked to confirm each individual action, "
                 "and the alert says exactly what it will do. Nothing happens while DSH is in the background.";
     return @"The bridge listens on this device only (127.0.0.1) and requires a token that changes every launch, so other apps cannot reach it.";
 }
