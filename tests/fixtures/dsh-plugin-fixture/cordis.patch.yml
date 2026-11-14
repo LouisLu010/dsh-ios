@@ -1,0 +1,5 @@
+# Mounts this package's own plugin. The bare name resolves from the profile's
+# node_modules, where `dsh plugin add` installed it.
+- insert:
+    - id: plugin-fixture
+      name: dsh-plugin-fixture

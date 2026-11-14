@@ -25,6 +25,11 @@ const s=require('sharp');
 s({create:{width:8,height:8,channels:3,background:'#f00'}}).resize(4,4).png().toBuffer().then(b=>process.exit(b.length>20?0:1)).catch(()=>process.exit(1));
 " 2>/dev/null || die "sharp cannot encode a PNG"
 step "sharp encodes"
-[ -f /root/.dsh/profiles/web/cordis.patch.yml ] || die "profile patch missing"
-step "profile patch present"
+[ -f /root/.dsh/profiles/web/package.json ] || die "web profile missing"
+grep -q '"@dsh-ios/web"' /root/.dsh/profiles/web/package.json || die "web profile does not list @dsh-ios/web"
+grep -q '"@dsh-ios/bridge"' /root/.dsh/profiles/web/package.json || die "web profile does not list @dsh-ios/bridge"
+step "web profile lists the DSH bundles"
+# Checked from its manifest: booting pnpm itself is slow under the emulator.
+[ -x /usr/local/bin/pnpm ] || die "pnpm missing (dsh plugin needs it)"
+step "pnpm $(node -p "require('/usr/local/lib/node_modules/pnpm/package.json').version" 2>/dev/null)"
 echo "SELFTEST OK"

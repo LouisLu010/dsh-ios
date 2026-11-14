@@ -134,9 +134,12 @@ prompted; it is stored with the harness settings in the guest.
   pinned npm tree from `rootfs/staging` (installed on the host for
   linux/arm64/musl) → `node-pty` rebuilt for musl → overlay → exported with
   `unfakefsify`. `rootfs/overlay` holds the entry point `dsh-serve`, the guest
-  self test, and `cordis.patch.yml` — the dsh profile layer that turns off the
+  self test, the host bridge plugin, and two dsh bundles under
+  `/usr/local/lib/node_modules/@dsh-ios/`: `@dsh-ios/web` turns off the
   per-command sandbox (the whole guest already *is* the sandbox) and defines
-  the `guest-ask` permission preset.
+  the `guest-ask` permission preset; `@dsh-ios/bridge` mounts the host bridge.
+  They are bundle layers, so the harness home keeps the desktop layout and
+  both `cordis.patch.yml` files stay yours (see *Plugins*).
 - **Supervisor.** `DSHHarness` picks a free loopback port, launches `dsh-serve`
   through `ISHShellExecutor`, polls until HTTP answers, restarts on crashes and
   publishes state to the UI. `DSHRootUpgrader` compares the bundled image's
@@ -184,7 +187,7 @@ app/            Objective-C sources, AppDSH.xcconfig, Info.plist, assets, launch
 rootfs/         overlay baked into the guest image + pinned npm manifest (staging/package.json)
 scripts/        build-rootfs.sh · gen-xcode-project.rb
 tests/          emu-test.sh · rootfs-test.sh · mock-deepseek.mjs · fetch-polyfill-test.mjs
-                emu/ (guest C tests) · DSHTests/ · DSHUITests/
+                emu/ (guest C tests) · fixtures/ (test dsh plugin) · DSHTests/ · DSHUITests/
 docs/           screenshots
 build/          generated: root.tar.gz, work dirs, xcresult bundles (git-ignored)
 ish-arm64/      the emulator (vendored, see its UPSTREAM.md)
@@ -280,6 +283,51 @@ survive app updates (see *Safe updates*). Downloads go to *Files ▸ DSH*.
 
 **Can I install more tools?** Yes — open the terminal (`>_`) and `apk add …`,
 `npm i -g …`, `pip …`. It is a normal Alpine root.
+
+**Can I install dsh plugins?** Yes, the same way as on desktop. See *Plugins*.
+
+## Plugins
+
+The guest runs the same dsh as desktop, with the same plugin system. In the
+terminal (`>_`):
+
+```sh
+dsh plugin --profile web add <package>     # npm name, git URL, tarball or file: path
+dsh plugin --profile web remove <package>
+```
+
+`dsh plugin` forwards to pnpm (shipped in the image) inside
+`~/.dsh/profiles/web`. A package that declares `dsh.bundle` becomes a layer of
+the profile; restart the harness (`⋯ ▸ Restart Harness`) to mount it.
+Settings ▸ Plugins lists what is loaded and edits plugin settings.
+
+Your own patch layers work as on desktop and apply live:
+`~/.dsh/profiles/web/cordis.patch.yml` and `~/.dsh/cordis.patch.yml`. Both
+come after every bundle, DSH's included, so they can override DSH's defaults.
+For example, set `defaultPreset: danger-full-access` on the `permission` row to
+stop approval prompts, or add `- id: host-bridge` with `disabled: true` to drop
+the iOS tools.
+
+DSH's own configuration is in the `@dsh-ios/web` and `@dsh-ios/bridge`
+bundles. `dsh-serve` lists them in every profile on start, right after the
+in-box `@deepseek-ai/*` bundles. A profile you create with `dsh plugin` gets
+`@dsh-ios/bridge` on the next harness restart. Older images overwrote your
+patch layers on every start; on the first start of this image, a file that
+still holds DSH's old shipped copy is reset to dsh's empty template, and any
+other content is left alone.
+
+Limits compared with desktop:
+
+- **Native addons.** The image keeps no compiler. A plugin with a native
+  dependency needs a linux-arm64-musl prebuild, or
+  `apk add build-base python3 linux-headers` first, and then a slow build in
+  the emulator. Like desktop pnpm, install scripts only run for packages you
+  allow (`allowBuilds` in the profile's `pnpm-workspace.yaml`).
+- **Speed.** Installs run under emulation. Small JS-only plugins take
+  seconds; large dependency trees take minutes.
+- **Image updates.** Plugins in `~/.dsh` are migrated with your data. If an
+  update changes the Node major version, rebuild native addons with
+  `dsh plugin --profile web rebuild`.
 
 **Why GPL?** Because the app compiles and statically links the GPLv3 iSH
 emulator. See [License](#license).

@@ -1,0 +1,20 @@
+{
+  "name": "dsh-plugin-fixture",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Out-of-tree dsh bundle used by tests/rootfs-test.sh to check that `dsh plugin add` works in the guest as on desktop",
+  "type": "module",
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "cordis.patch.yml"
+  ],
+  "peerDependencies": {
+    "@deepseek-ai/dsh-tools": "*"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

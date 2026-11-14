@@ -107,8 +107,10 @@ make run TEAM=XXXXXXXXXX DEVICE=<udid>   # 构建、签名、安装、启动到 
 - **Guest 镜像。** `scripts/build-rootfs.sh` **在 Mac 上用同一个模拟器**构建 `root.tar.gz`：Alpine
   minirootfs → `apk add nodejs npm …` → 把 `rootfs/staging` 里锁定版本的 npm 依赖树（在宿主上按
   linux/arm64/musl 安装）放进去 → 为 musl 重新编译 `node-pty` → 叠加 overlay → 用 `unfakefsify` 导出。
-  `rootfs/overlay` 包含入口脚本 `dsh-serve`、guest 自检脚本，以及 `cordis.patch.yml`——dsh 的 profile
-  层，用来关闭逐命令沙箱（整个 guest 本身就是沙箱）并定义 `guest-ask` 权限预设。
+  `rootfs/overlay` 包含入口脚本 `dsh-serve`、guest 自检脚本、host bridge 插件，以及
+  `/usr/local/lib/node_modules/@dsh-ios/` 下的两个 dsh 组合包：`@dsh-ios/web` 关闭逐命令沙箱（整个 guest
+  本身就是沙箱）并定义 `guest-ask` 权限预设；`@dsh-ios/bridge` 挂载 host bridge。它们是组合包层，所以
+  harness home 保持桌面版的目录结构，两个 `cordis.patch.yml` 都归你所有（见「插件」）。
 - **监督器。** `DSHHarness` 选一个空闲回环端口，通过 `ISHShellExecutor` 启动 `dsh-serve`，轮询直到 HTTP
   可用，崩溃时重启，并把状态发布给 UI。`DSHRootUpgrader` 每次启动都比对内置镜像的 SHA-256 与已导入的
   root，不一致时导入新镜像并迁移用户数据。
@@ -150,7 +152,7 @@ app/            Objective-C 源码、AppDSH.xcconfig、Info.plist、素材、启
 rootfs/         打进 guest 镜像的 overlay + 锁定版本的 npm 清单（staging/package.json）
 scripts/        build-rootfs.sh · gen-xcode-project.rb
 tests/          emu-test.sh · rootfs-test.sh · mock-deepseek.mjs · fetch-polyfill-test.mjs
-                emu/（guest 内 C 测试）· DSHTests/ · DSHUITests/
+                emu/（guest 内 C 测试）· fixtures/（测试用 dsh 插件）· DSHTests/ · DSHUITests/
 docs/           截图
 build/          生成物：root.tar.gz、工作目录、xcresult（已 gitignore）
 ish-arm64/      模拟器（vendored，见其 UPSTREAM.md）
@@ -219,6 +221,39 @@ Apple Health 有个值得注意的地方：iOS 从不告诉 app **读**权限是
 **我的数据在哪？** 在 app 容器内的 guest 镜像里：`/root/.dsh`（会话、凭据、设置）和 `/root/workspace`，app 升级时会自动迁移（见「安全升级」）。下载文件在「文件 ▸ DSH」。
 
 **能装更多工具吗？** 可以——打开终端（`>_`）然后 `apk add …`、`npm i -g …`、`pip …`，这就是一个正常的 Alpine 根文件系统。
+
+**能装 dsh 插件吗？** 能，用法和桌面版一样，见「插件」。
+
+## 插件
+
+guest 里跑的是和桌面版同一个 dsh，插件系统也一样。在终端（`>_`）里：
+
+```sh
+dsh plugin --profile web add <包>      # npm 包名、git 地址、tarball 或 file: 路径
+dsh plugin --profile web remove <包>
+```
+
+`dsh plugin` 会在 `~/.dsh/profiles/web` 里调用 pnpm（镜像自带）。声明了 `dsh.bundle` 的包会成为该
+profile 的一层；装完后 `⋯ ▸ 重启 Harness` 即可挂载。设置 ▸ 插件 里可以看到已加载的插件并修改插件配置。
+
+你自己的 patch 层和桌面版一样，改完即时生效：`~/.dsh/profiles/web/cordis.patch.yml` 和
+`~/.dsh/cordis.patch.yml`。它们排在所有组合包（包括 DSH 自己的）之后，所以可以覆盖 DSH 的默认值。
+例如在 `permission` 行设 `defaultPreset: danger-full-access` 就不再弹审批，或者加一行
+`- id: host-bridge` 并设 `disabled: true` 去掉 iOS 工具。
+
+DSH 自己的配置在 `@dsh-ios/web` 和 `@dsh-ios/bridge` 两个组合包里。`dsh-serve` 每次启动时把它们写进
+每个 profile 的组合包列表，紧跟在内置的 `@deepseek-ai/*` 之后。用 `dsh plugin` 新建的 profile 会在下次
+重启 Harness 时加上 `@dsh-ios/bridge`。旧镜像每次启动都会覆盖你的 patch 层；本镜像第一次启动时，内容仍是
+DSH 旧版内置副本的文件会被重置为 dsh 的空模板，其他内容一律不动。
+
+和桌面版相比的限制：
+
+- **原生模块。** 镜像里没有编译器。带原生依赖的插件需要有 linux-arm64-musl 的预编译包，否则要先
+  `apk add build-base python3 linux-headers`，再在模拟器里慢慢编译。和桌面版 pnpm 一样，只有你允许的包
+  才会执行安装脚本（profile 的 `pnpm-workspace.yaml` 里的 `allowBuilds`）。
+- **速度。** 安装在模拟环境下进行。小的纯 JS 插件几秒钟，依赖树大的要几分钟。
+- **镜像升级。** `~/.dsh` 里的插件会随用户数据一起迁移。如果升级换了 Node 大版本，用
+  `dsh plugin --profile web rebuild` 重新编译原生模块。
 
 **为什么是 GPL？** 因为 app 编译并静态链接了 GPLv3 的 iSH 模拟器，见[许可证](#许可证)。
 
