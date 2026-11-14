@@ -1,9 +1,10 @@
 {
   "name": "dsh-ios-rootfs-staging",
   "private": true,
-  "description": "Pins the @deepseek-ai/dsh tree that build-rootfs.sh installs into the guest (linux/arm64/musl).",
+  "description": "Pins the @deepseek-ai/dsh tree that build-rootfs.sh installs into the guest (linux/arm64/musl). zod is listed so the version 65 dsh packages pin is hoisted and shared; otherwise each gets a private copy, which the guest compiles at every start.",
   "dependencies": {
     "@deepseek-ai/dsh": "0.2.2-rc.1",
-    "pnpm": "10.34.9"
+    "pnpm": "10.34.9",
+    "zod": "4.4.3"
   }
 }

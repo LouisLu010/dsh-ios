@@ -31,8 +31,9 @@ dsh-ios-heal-home || echo "dsh-serve: dsh-ios-heal-home failed; DSH bundles may 
 
 cd "$DSH_WORKSPACE"
 
+# --no-open: the app shows the UI; there is no browser to launch in the guest.
 # --expose-internals: cordis-plugin-hmr needs Node internals; the prebuilt
 # node-addon-require-builtin shim has no musl build, so use the flag instead.
 exec node --expose-internals \
     /usr/local/lib/node_modules/@deepseek-ai/dsh/lib/bin.js \
-    web --host 127.0.0.1 --port "$PORT" "$@"
+    web --host 127.0.0.1 --port "$PORT" --no-open "$@"

@@ -50,6 +50,11 @@ extern NSNotificationName const DSHHarnessStateDidChangeNotification;
 @property (nonatomic, readonly) uint16_t port;
 /// http://127.0.0.1:<port>/ once a port is chosen (may be nil before start).
 @property (nonatomic, readonly, nullable) NSURL *baseURL;
+/// The URL to open the web UI with. dsh 0.2 refuses the bare base URL with
+/// 401 until the browser exchanges the per-launch token it prints
+/// (`dsh web: http://127.0.0.1:<port>/?token=…`) for a session cookie, so this
+/// is that printed URL once seen, and baseURL for a server that prints none.
+@property (nonatomic, readonly, nullable) NSURL *launchURL;
 @property (nonatomic, readonly) DSHLogBuffer *log;
 @property (nonatomic, readonly) NSUInteger restartCount;
 @property (nonatomic, readonly, nullable) NSString *lastError;
@@ -69,6 +74,9 @@ extern NSNotificationName const DSHHarnessStateDidChangeNotification;
 @property (nonatomic) uint16_t preferredPort;
 /// Seconds to wait for the first HTTP answer before declaring failure. Default 240.
 @property (nonatomic) NSTimeInterval startupTimeout;
+/// Seconds to wait, after the first HTTP answer, for the tokened URL line
+/// before falling back to baseURL. Default 15.
+@property (nonatomic) NSTimeInterval launchURLWait;
 /// Consecutive crashes tolerated before giving up. Default 4.
 @property (nonatomic) NSUInteger maxConsecutiveCrashes;
 /// Failures retained across app launches inside the ten-minute crash-loop

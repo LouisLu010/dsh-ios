@@ -236,18 +236,24 @@ echo "== boot dsh-serve on 127.0.0.1:$PORT (timeout ${BOOT_TIMEOUT}s)"
 start=$(date +%s)
 ( "$ISH_BUILD/ish" -f "$WORK/fakefs" /bin/sh -c "DSH_PORT=$PORT dsh-serve" 2>&1 | filter > "$WORK/dsh-serve.log" ) &
 up=0
+# dsh 0.2 answers the bare URL with 401 and prints a per-launch
+# `dsh web: <url>?token=…`; the token buys a session cookie (what the app does).
 for _ in $(seq 1 "$BOOT_TIMEOUT"); do
     sleep 1
-    if curl -fs -o "$WORK/index.html" "http://127.0.0.1:$PORT/"; then up=1; break; fi
+    url=$(grep -o "http://127.0.0.1:$PORT/?token=[A-Za-z0-9_-]*" "$WORK/dsh-serve.log" | head -1)
+    [ -n "$url" ] || continue
+    if curl -fsL -c "$WORK/cookies" -b "$WORK/cookies" -o "$WORK/index.html" "$url"; then up=1; break; fi
 done
 elapsed=$(( $(date +%s) - start ))
 check "web UI reachable from host loopback (${elapsed}s)" test "$up" = 1
 check "index carries __DSH_BOOT__ manifest" grep -q '__DSH_BOOT__' "$WORK/index.html"
+code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/")
+check "bare URL without the token is refused ($code)" test "$code" = 401
 plugin_url=$(grep -o '/plugins/[^"]*client.js?rev=[0-9a-f]*' "$WORK/index.html" | head -1)
 code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT$plugin_url")
 check "client plugin bundle served ($plugin_url -> $code)" test "$code" = 200
 sleep 5
-check "server still alive after 5s" curl -fs -o /dev/null "http://127.0.0.1:$PORT/"
+check "server still alive after 5s" curl -fs -b "$WORK/cookies" -o /dev/null "http://127.0.0.1:$PORT/"
 grep -Eq 'fatal|Error:' "$WORK/dsh-serve.log"; noerr=$?
 check "no fatal error in dsh-serve log" test "$noerr" != 0
 grep -q 'dsh-ios-heal-home failed' "$WORK/dsh-serve.log"; healfail=$?

@@ -160,7 +160,10 @@
     launcher.onLaunch = ^(NSDictionary *env, void (^line)(NSString *, BOOL), void (^exit)(int)) {
         uint16_t port = (uint16_t) [env[@"DSH_PORT"] intValue];
         server = [[DSHTestHTTPServer alloc] initWithPort:port];
-        line([NSString stringWithFormat:@"dsh web: http://127.0.0.1:%u", port], NO);
+        // dsh 0.2 prints the UI URL with its per-launch token. A tokened URL
+        // for another port must be ignored.
+        line(@"dsh web: http://127.0.0.1:1/?token=wrong-port", NO);
+        line([NSString stringWithFormat:@"dsh web: http://127.0.0.1:%u/?token=launch-token-1", port], NO);
         line(@"Warning: disabling flag --expose_wasm due to conflicting flags", YES);
     };
     DSHHarness *h = [[DSHHarness alloc] initWithLauncher:launcher];
@@ -185,7 +188,9 @@
     [self waitForExpectations:@[ready] timeout:10];
 
     XCTAssertEqualObjects(h.baseURL.absoluteString, ([NSString stringWithFormat:@"http://127.0.0.1:%u/", h.port]));
+    XCTAssertEqualObjects(h.launchURL.absoluteString, ([NSString stringWithFormat:@"http://127.0.0.1:%u/?token=launch-token-1", h.port]));
     XCTAssertTrue([[h.log tail:50] containsString:@"dsh web: http://127.0.0.1:"]);
+    XCTAssertFalse([[h.log tail:50] containsString:@"launch-token-1"], @"the token is redacted from the log");
     XCTAssertFalse([[h.log tail:50] containsString:@"expose_wasm"], @"noise is filtered");
     XCTAssertTrue([[h.log tail:50] containsString:@"server answered"]);
     XCTAssertGreaterThan(h.guestPid, 0);
@@ -224,6 +229,7 @@
     };
     DSHHarness *h = [[DSHHarness alloc] initWithLauncher:launcher];
     h.preferredPort = 38300;
+    h.launchURLWait = 0.5;   // this fake prints no tokened URL (an older dsh)
     XCTestExpectation *ready1 = [self expectationForNotification:DSHHarnessStateDidChangeNotification object:h handler:^BOOL(NSNotification *n) { return h.state == DSHHarnessStateReady; }];
     [h start];
     [self waitForExpectations:@[ready1] timeout:10];
@@ -237,6 +243,7 @@
     XCTAssertEqual(h.port, port, @"same port reused when free");
     XCTAssertEqual(launcher.launches.count, 2u);
     XCTAssertEqual(h.restartCount, 1u);
+    XCTAssertEqualObjects(h.launchURL, h.baseURL, @"no tokened URL printed, so the bare URL is used");
     for (DSHTestHTTPServer *s in servers) [s stop];
 }
 

@@ -40,7 +40,7 @@
     XCTAssertGreaterThan(h.guestPid, 0);
 
     XCTestExpectation *fetched = [self expectationWithDescription:@"index"];
-    [[NSURLSession.sharedSession dataTaskWithURL:h.baseURL completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+    [[NSURLSession.sharedSession dataTaskWithURL:h.launchURL completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
         XCTAssertNil(error);
         XCTAssertEqual(((NSHTTPURLResponse *) response).statusCode, 200);
         NSString *html = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];

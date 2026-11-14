@@ -194,7 +194,8 @@ static NSString *const kDSHUserAgentSuffix = @" DSH-iOS/1.0";
     restart.attributes = UIMenuElementAttributesDestructive;
     UIAction *repair = [UIAction actionWithTitle:@"Repair Linux Environment" image:[UIImage systemImageNamed:@"wrench.and.screwdriver"] identifier:@"dsh.repair" handler:^(UIAction *a) { [weakSelf confirmRepair]; }];
     UIAction *safari = [UIAction actionWithTitle:@"Open in Safari" image:[UIImage systemImageNamed:@"safari"] identifier:@"dsh.safari" handler:^(UIAction *a) {
-        NSURL *url = DSHHarness.shared.baseURL;
+        // Safari has no session cookie, so it needs the tokened URL.
+        NSURL *url = DSHHarness.shared.launchURL;
         if (url) [UIApplication.sharedApplication openURL:url options:@{} completionHandler:nil];
     }];
     UIAction *about = [UIAction actionWithTitle:@"About DeepSeek Harness" image:[UIImage systemImageNamed:@"info.circle"] identifier:@"dsh.about" handler:^(UIAction *a) { [weakSelf presentAbout]; }];
@@ -306,7 +307,9 @@ static NSString *const kDSHUserAgentSuffix = @" DSH-iOS/1.0";
 }
 
 - (void)loadHarness {
-    NSURL *url = DSHHarness.shared.baseURL;
+    // The tokened URL: dsh exchanges it for a session cookie and redirects to
+    // the clean root, so reloads afterwards keep working.
+    NSURL *url = DSHHarness.shared.launchURL;
     if (url == nil)
         return;
     [self.overlay showStarting:@"Loading the interface…"];
