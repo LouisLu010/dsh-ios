@@ -4,6 +4,7 @@
 //
 
 #import "DSHHarness.h"
+#import "DSHTurnPresence.h"
 #import "DSHPortAllocator.h"
 #import "DSHReadinessProbe.h"
 #import "DSHGuestLauncher.h"
@@ -352,19 +353,41 @@ NSString *DSHHarnessStateName(DSHHarnessState state) {
     if (self.healthCheckInFlight)
         return;
     self.healthCheckInFlight = YES;
-    NSUInteger generation = self.launchGeneration;
+    [self healthCheckAttempt:1 generation:self.launchGeneration since:NSDate.date];
+}
+
+/// One slow answer is not a dead server. dsh runs JavaScript on one thread
+/// under an emulator, and in the middle of an agent turn (which keeps going in
+/// the background with Keep Running in Background on) it can take far longer
+/// than a few seconds to get to a request. Restarting it then kills the turn
+/// the user came back to look at. So keep asking for a while, longer while
+/// the agent is working, and restart only a server that stays silent the
+/// whole time. A server whose process has exited is handled by
+/// processExitedWithCode:, not here.
+- (void)healthCheckAttempt:(NSUInteger)attempt generation:(NSUInteger)generation since:(NSDate *)since {
     NSURL *url = self.baseURL;
     __weak typeof(self) weakSelf = self;
-    [DSHReadinessProbe checkURL:url timeout:5 completion:^(BOOL alive) {
+    [DSHReadinessProbe checkURL:url timeout:10 completion:^(BOOL alive) {
         typeof(self) self = weakSelf;
         if (self == nil)
             return;
+        BOOL stillCurrent = generation == self.launchGeneration && self.state == DSHHarnessStateReady;
+        NSTimeInterval window = DSHTurnPresence.shared.isWorking ? 180 : 60;
+        if (!alive && stillCurrent && -since.timeIntervalSinceNow < window) {
+            if (attempt == 1)
+                [self.log append:@"[dsh-ios] health check: no answer yet; the server may be busy, retrying"];
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t) (3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                [weakSelf healthCheckAttempt:attempt + 1 generation:generation since:since];
+            });
+            return;
+        }
         self.healthCheckInFlight = NO;
         NSArray<void (^)(BOOL)> *completions = [self.healthCheckCompletions copy];
         [self.healthCheckCompletions removeAllObjects];
-        BOOL stillCurrent = generation == self.launchGeneration && self.state == DSHHarnessStateReady;
+        if (alive && attempt > 1)
+            [self.log append:[NSString stringWithFormat:@"[dsh-ios] health check: server answered after %.0fs", -since.timeIntervalSinceNow]];
         if (!alive && stillCurrent) {
-            [self.log append:@"[dsh-ios] health check failed; restarting server"];
+            [self.log append:[NSString stringWithFormat:@"[dsh-ios] health check failed for %.0fs; restarting server", -since.timeIntervalSinceNow]];
             [self restart];
         }
         for (void (^callback)(BOOL) in completions)

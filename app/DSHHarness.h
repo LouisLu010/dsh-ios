@@ -87,8 +87,9 @@ extern NSNotificationName const DSHHarnessStateDidChangeNotification;
 - (void)stop;
 - (void)restart;
 
-/// Runs a health check; if the server stopped answering while the process is
-/// still up (should not happen) it is restarted. Safe to call on foreground.
+/// Runs a health check. A server that keeps not answering for a minute (three
+/// while the agent is working) while its process is still up is restarted;
+/// a merely slow answer is not. Safe to call on foreground.
 - (void)verifyAliveWithCompletion:(nullable void (^)(BOOL alive))completion;
 
 @end
